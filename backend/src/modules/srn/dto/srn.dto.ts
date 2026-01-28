@@ -8,6 +8,7 @@ import {
   IsEnum,
   IsOptional,
   ArrayMinSize,
+  Min,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
@@ -21,12 +22,24 @@ export class SRNItemDto {
 
   @ApiProperty({ example: 10, description: 'Number of packets requested' })
   @IsInt()
-  @IsPositive()
+  @Min(0)
   @Type(() => Number)
   requestedPackets: number;
+
+  @ApiPropertyOptional({ example: 5, description: 'Number of loose units requested' })
+  @IsInt()
+  @Min(0)
+  @IsOptional()
+  @Type(() => Number)
+  requestedLooseUnits?: number;
 }
 
 export class CreateSRNDto {
+  @ApiProperty({ description: 'Manufacturer ID (must be assigned to retailer)' })
+  @IsString()
+  @IsNotEmpty()
+  manufacturerId: string;
+
   @ApiProperty({ type: [SRNItemDto], description: 'Items to request' })
   @IsArray()
   @ArrayMinSize(1, { message: 'At least one item is required' })
@@ -43,19 +56,22 @@ export class ApprovalItemDto {
 
   @ApiProperty({ description: 'Approved packets (can be less than requested)' })
   @IsInt()
+  @Min(0)
   @Type(() => Number)
   approvedPackets: number;
+
+  @ApiPropertyOptional({ description: 'Approved loose units' })
+  @IsInt()
+  @Min(0)
+  @IsOptional()
+  @Type(() => Number)
+  approvedLooseUnits?: number;
 }
 
 export class ApproveSRNDto {
   @ApiProperty({ enum: ['APPROVED', 'PARTIAL', 'REJECTED'] })
   @IsEnum(['APPROVED', 'PARTIAL', 'REJECTED'])
   action: 'APPROVED' | 'PARTIAL' | 'REJECTED';
-
-  @ApiProperty({ description: 'Manufacturer to fulfill the order' })
-  @IsString()
-  @IsNotEmpty()
-  manufacturerId: string;
 
   @ApiPropertyOptional({ type: [ApprovalItemDto] })
   @IsArray()
@@ -81,10 +97,19 @@ export class SRNItemResponseDto {
   materialName: string;
 
   @ApiProperty()
+  sqCode: string;
+
+  @ApiProperty()
   requestedPackets: number;
+
+  @ApiProperty()
+  requestedLooseUnits: number;
 
   @ApiPropertyOptional()
   approvedPackets?: number;
+
+  @ApiPropertyOptional()
+  approvedLooseUnits?: number;
 }
 
 export class SRNResponseDto {
@@ -99,6 +124,12 @@ export class SRNResponseDto {
 
   @ApiProperty()
   retailerName: string;
+
+  @ApiPropertyOptional()
+  manufacturerId?: string;
+
+  @ApiPropertyOptional()
+  manufacturerName?: string;
 
   @ApiProperty({ enum: SRNStatus })
   status: SRNStatus;
