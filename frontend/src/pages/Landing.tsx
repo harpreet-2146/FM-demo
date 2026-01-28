@@ -2,13 +2,13 @@ import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Shield, Factory, Store, ArrowRight } from 'lucide-react';
+import bgImage from '../assets/landing.webp';
 
 export default function Landing() {
   const navigate = useNavigate();
   const { user, isBootstrapped, isLoading } = useAuth();
 
   useEffect(() => {
-    // If user is logged in, redirect to their dashboard
     if (user) {
       switch (user.role) {
         case 'ADMIN':
@@ -26,32 +26,35 @@ export default function Landing() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-dark-950">
-        <div className="w-12 h-12 border-2 border-dark-600 border-t-primary-500 rounded-full animate-spin" />
+      <div className="min-h-screen flex items-center justify-center bg-black">
+        <div className="w-12 h-12 border-2 border-white/30 border-t-white rounded-full animate-spin" />
       </div>
     );
   }
 
-  // If not bootstrapped, show bootstrap prompt
   if (isBootstrapped === false) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-dark-950">
-        <div className="text-center max-w-lg">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-primary-600 mb-6">
-            <Shield size={40} className="text-white" />
+      <div
+        className="min-h-screen bg-cover bg-center bg-no-repeat flex items-center justify-center"
+        style={{ backgroundImage: `url(${bgImage})` }}
+      >
+        <div className="text-center max-w-lg px-6">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary-600 mb-6">
+            <Shield size={32} className="text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-white mb-4">
-            Welcome to Food Manufacturing SaaS
+          <h1 className="text-3xl font-semibold text-white mb-4">
+            System Initialization Required
           </h1>
-          <p className="text-dark-400 mb-8">
-            This system has not been initialized yet. Create the first administrator account to get started.
+          <p className="text-slate-300 mb-8 leading-relaxed">
+            This system has not been initialized yet.
+            Create the first administrator account to begin configuration.
           </p>
           <button
             onClick={() => navigate('/bootstrap')}
-            className="btn btn-primary btn-lg flex items-center gap-2 mx-auto"
+            className="inline-flex items-center gap-2 text-primary-400 font-medium hover:underline"
           >
             Initialize System
-            <ArrowRight size={20} />
+            <ArrowRight size={18} />
           </button>
         </div>
       </div>
@@ -62,86 +65,101 @@ export default function Landing() {
     {
       id: 'admin',
       title: 'Administrator',
-      description: 'Full system access, user management, inventory oversight',
+      description:
+        'System-wide control over materials, users, inventory, invoicing, and commissions.',
       icon: Shield,
-      color: 'from-purple-600 to-purple-800',
-      features: ['Manage Materials', 'Approve SRNs', 'Generate Invoices', 'Track Commissions'],
+      features: [
+        'Define materials and pricing',
+        'Approve SRNs and stock movements',
+        'Generate and lock invoices',
+        'Track commissions independently',
+      ],
     },
     {
       id: 'manufacturer',
       title: 'Manufacturer',
-      description: 'Production batches and dispatch management',
+      description:
+        'Production execution and dispatch management without exposure to financial data.',
       icon: Factory,
-      color: 'from-blue-600 to-blue-800',
-      features: ['Record Production', 'View Inventory', 'Execute Dispatch', 'No Financial Data'],
+      features: [
+        'Record production batches',
+        'Monitor available inventory',
+        'Execute dispatch operations',
+        'Operate within defined rules',
+      ],
     },
     {
       id: 'retailer',
       title: 'Retailer',
-      description: 'Request stock, receive goods, record sales',
+      description:
+        'Request stock, receive goods, and record sales within a controlled supply chain.',
       icon: Store,
-      color: 'from-green-600 to-green-800',
-      features: ['Create SRNs', 'Confirm GRNs', 'Record Sales', 'View Invoices'],
+      features: [
+        'Create stock requests (SRNs)',
+        'Confirm received goods (GRNs)',
+        'Record sales transactions',
+        'View issued invoices',
+      ],
     },
   ];
 
   return (
-    <div className="min-h-screen bg-dark-950">
-      {/* Header */}
-      <header className="p-6">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <h1 className="text-xl font-bold text-primary-500">FoodMfg SaaS</h1>
-          <span className="text-dark-400 text-sm">Zero Hardcoding Architecture</span>
-        </div>
-      </header>
-
+    <div
+      className="min-h-screen bg-cover bg-center bg-no-repeat text-white"
+      style={{ backgroundImage: `url(${bgImage})` }}
+    >
+      
       {/* Hero */}
-      <section className="px-6 py-16">
-        <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
-            Food Manufacturing
+      <section className="px-4 pt-36 pb-22">
+        <div className="max-w-4xl mx-auto">
+          <h2 className="text-5xl md:text-6xl font-bold tracking-tight mb-6">
+            Food Manufacturing,
             <br />
-            <span className="text-primary-500">Inventory Management</span>
+            <span className="text-primary-400 font-style: italic">
+              Done With Control.
+            </span>
           </h2>
-          <p className="text-xl text-dark-400 mb-8 max-w-2xl mx-auto">
-            Complete supply chain management with production tracking, SRN workflow, GST-compliant invoicing, and commission management.
-          </p>
         </div>
       </section>
 
-      {/* Role Selection */}
-      <section className="px-6 pb-16">
+            {/* Role Selection */}
+      <section className="px-4 pb-24">
         <div className="max-w-6xl mx-auto">
-          <h3 className="text-2xl font-semibold text-white text-center mb-8">
-            Select your role to login
-          </h3>
-
-          <div className="grid md:grid-cols-3 gap-6">
+          <div className="grid lg:grid-cols-3 gap-12">
             {roles.map((role) => {
               const Icon = role.icon;
               return (
                 <button
                   key={role.id}
-                  onClick={() => navigate('/login', { state: { role: role.id } })}
-                  className="group text-left"
+                  onClick={() =>
+                    navigate('/login', { state: { role: role.id } })
+                  }
+                  className="text-left group"
                 >
-                  <div className={`bg-gradient-to-br ${role.color} rounded-2xl p-6 mb-4 transition-transform group-hover:scale-[1.02]`}>
-                    <Icon size={48} className="text-white/80 mb-4" />
-                    <h4 className="text-xl font-bold text-white mb-2">{role.title}</h4>
-                    <p className="text-white/70 text-sm">{role.description}</p>
-                  </div>
-                  <div className="card">
-                    <ul className="space-y-2">
-                      {role.features.map((feature, i) => (
-                        <li key={i} className="flex items-center gap-2 text-sm text-dark-300">
-                          <div className="w-1.5 h-1.5 rounded-full bg-primary-500" />
-                          {feature}
+                  <div className="backdrop-blur-sm bg-slate-700/30 border border-white/10 rounded-xl p-6 h-full hover:border-white/20 transition">
+                    <Icon size={36} className="text-primary-400 mb-4" />
+                    <h4 className="text-3xl font-bold mb-2">
+                      {role.title}
+                    </h4>
+                    <p className="text-medium text-slate-100 mb-4 leading-relaxed">
+                      {role.description}
+                    </p>
+
+                    <ul className="space-y-2 text-medium text-slate-300">
+                      {role.features.map((f, i) => (
+                        <li key={i} className="flex items-start gap-2">
+                          <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary-400" />
+                          {f}
                         </li>
                       ))}
                     </ul>
-                    <div className="mt-4 flex items-center gap-2 text-primary-500 font-medium">
-                      Login as {role.title}
-                      <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+
+                    <div className="mt-6 flex items-center gap-2 text-primary-400 font-semibold">
+                      Enter as {role.title}
+                      <ArrowRight
+                        size={16}
+                        className="transition-transform group-hover:translate-x-1"
+                      />
                     </div>
                   </div>
                 </button>
@@ -152,12 +170,16 @@ export default function Landing() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-dark-800 p-6">
-        <div className="max-w-6xl mx-auto text-center text-dark-500 text-sm">
-          <p>All business data is Admin-defined. No hardcoded defaults.</p>
-          <p className="mt-1">HSN/GST locked after production • Invoices immutable • Commission decoupled from Invoice</p>
+      <footer className="px-4">
+        <div className="max-w-6xl mx-auto text-center text-sm text-slate-300/50">
+          <p>
+            HSN & GST locked at production • Invoices immutable •
+            Commissions decoupled from billing
+          </p>
+          
         </div>
       </footer>
     </div>
   );
 }
+
