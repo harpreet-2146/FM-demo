@@ -1,5 +1,5 @@
 // Food Manufacturing SaaS - Prisma Schema
-// ARCHITECTURE FROZEN - DO NOT MODIFY STRUCTURE
+// ARCHITECTURE FROZEN - CONTROLLED EXTENSIONS ONLY
 
 generator client {
   provider = "prisma-client-js"
@@ -54,9 +54,39 @@ enum TransactionType {
   PRODUCTION
   DISPATCH_BLOCK
   DISPATCH_EXECUTE
+  DISPATCH_UNBLOCK
   GRN_RECEIVE
   SALE
   PACKET_OPEN
+  RETURN_RESTOCK
+}
+
+enum ReturnReason {
+  DAMAGED_GOODS
+  MISSING_UNITS
+  QUALITY_ISSUE
+  WRONG_PRODUCT
+  OTHER
+}
+
+enum ReturnStatus {
+  RAISED
+  UNDER_REVIEW
+  APPROVED_RESTOCK
+  APPROVED_REPLACE
+  REJECTED
+  RESOLVED
+}
+
+enum NotificationType {
+  RETURN_RAISED
+  RETURN_RESOLVED
+  SRN_SUBMITTED
+  SRN_APPROVED
+  SRN_REJECTED
+  DISPATCH_CREATED
+  DISPATCH_EXECUTED
+  GRN_CONFIRMED
 }
 
 // =============================================================================
@@ -75,23 +105,56 @@ model User {
   createdBy     String?   // null = bootstrap admin
 
   // Relations
-  createdUsers          User[]                  @relation("UserCreator")
-  creator               User?                   @relation("UserCreator", fields: [createdBy], references: [id])
-  materials             Material[]
-  productionBatches     ProductionBatch[]
-  manufacturerInventory ManufacturerInventory[]
-  retailerInventory     RetailerInventory[]
-  srnsAsRetailer        SRN[]                   @relation("SRNRetailer")
-  srnsAsApprover        SRN[]                   @relation("SRNApprover")
-  dispatchesAsAdmin     DispatchOrder[]         @relation("DispatchAdmin")
-  dispatchesAsMfr       DispatchOrder[]         @relation("DispatchManufacturer")
-  grns                  GRN[]
-  invoices              Invoice[]
-  sales                 Sale[]
-  commissions           Commission[]
-  inventoryTransactions InventoryTransaction[]
+  createdUsers              User[]                          @relation("UserCreator")
+  creator                   User?                           @relation("UserCreator", fields: [createdBy], references: [id])
+  materials                 Material[]
+  productionBatches         ProductionBatch[]
+  manufacturerInventory     ManufacturerInventory[]
+  retailerInventory         RetailerInventory[]
+  srnsAsRetailer            SRN[]                           @relation("SRNRetailer")
+  srnsAsApprover            SRN[]                           @relation("SRNApprover")
+  dispatchesAsManufacturer  DispatchOrder[]                 @relation("DispatchManufacturer")
+  dispatchesCreatedBy       DispatchOrder[]                 @relation("DispatchCreator")
+  grns                      GRN[]
+  invoices                  Invoice[]
+  sales                     Sale[]
+  commissions               Commission[]
+  inventoryTransactions     InventoryTransaction[]
+  
+  // Retailer-Manufacturer Assignments
+  retailerAssignments       RetailerManufacturerAssignment[] @relation("RetailerAssignments")
+  manufacturerAssignments   RetailerManufacturerAssignment[] @relation("ManufacturerAssignments")
+  assignmentsCreated        RetailerManufacturerAssignment[] @relation("AssignmentAdmin")
+  
+  // Returns
+  returnsAsRetailer         Return[]                        @relation("ReturnRetailer")
+  returnsAsManufacturer     Return[]                        @relation("ReturnManufacturer")
+  returnsResolved           Return[]                        @relation("ReturnResolver")
+  
+  // Notifications
+  notifications             Notification[]
 
   @@map("users")
+}
+
+// =============================================================================
+// RETAILER-MANUFACTURER ASSIGNMENTS
+// =============================================================================
+
+model RetailerManufacturerAssignment {
+  id             String   @id @default(uuid())
+  retailerId     String
+  manufacturerId String
+  assignedAt     DateTime @default(now())
+  assignedBy     String   // Admin who made assignment
+  isActive       Boolean  @default(true)
+
+  retailer       User     @relation("RetailerAssignments", fields: [retailerId], references: [id])
+  manufacturer   User     @relation("ManufacturerAssignments", fields: [manufacturerId], references: [id])
+  admin          User     @relation("AssignmentAdmin", fields: [assignedBy], references: [id])
+
+  @@unique([retailerId, manufacturerId])
+  @@map("retailer_manufacturer_assignments")
 }
 
 // =============================================================================
@@ -100,6 +163,7 @@ model User {
 
 model Material {
   id              String         @id @default(uuid())
+  sqCode          String         @unique // Internal stock-keeping code - IMMUTABLE
   name            String
   description     String?
   hsnCode         String         // IMMUTABLE after hasProduction = true
@@ -125,6 +189,7 @@ model Material {
   invoiceItems          InvoiceItem[]
   sales                 Sale[]
   inventoryTransactions InventoryTransaction[]
+  returnItems           ReturnItem[]
 
   @@map("materials")
 }
@@ -141,6 +206,7 @@ model ProductionBatch {
   manufactureDate DateTime
   expiryDate      DateTime
   packetsProduced Int
+  looseUnitsProduced Int   @default(0) // NEW: Loose units produced
   hsnCodeSnapshot String   // Snapshot at production time
   createdAt       DateTime @default(now())
 
@@ -156,13 +222,15 @@ model ProductionBatch {
 // INVENTORY - SPLIT BY LOCATION TYPE
 // =============================================================================
 
-// Manufacturer Inventory - Packets only, with blocking for dispatch
+// Manufacturer Inventory - Packets + Loose Units, with blocking for dispatch
 model ManufacturerInventory {
   id             String   @id @default(uuid())
   materialId     String
   manufacturerId String
   fullPackets    Int      @default(0)
   blockedPackets Int      @default(0) // Blocked for approved SRNs
+  looseUnits     Int      @default(0) // NEW: Independent loose units
+  blockedLooseUnits Int   @default(0) // NEW: Blocked loose units for approved SRNs
   updatedAt      DateTime @updatedAt
 
   // Relations
@@ -195,16 +263,17 @@ model RetailerInventory {
 // =============================================================================
 
 model SRN {
-  id            String    @id @default(uuid())
-  srnNumber     String    @unique
-  retailerId    String
-  status        SRNStatus @default(DRAFT)
-  createdAt     DateTime  @default(now())
-  submittedAt   DateTime?
-  approvedAt    DateTime?
-  rejectedAt    DateTime?
-  approvedBy    String?
-  rejectionNote String?
+  id              String    @id @default(uuid())
+  srnNumber       String    @unique
+  retailerId      String
+  manufacturerId  String?   // NEW: Assigned manufacturer (set by retailer from assigned list)
+  status          SRNStatus @default(DRAFT)
+  createdAt       DateTime  @default(now())
+  submittedAt     DateTime?
+  approvedAt      DateTime?
+  rejectedAt      DateTime?
+  approvedBy      String?
+  rejectionNote   String?
 
   // Relations
   retailer      User            @relation("SRNRetailer", fields: [retailerId], references: [id])
@@ -220,7 +289,9 @@ model SRNItem {
   srnId           String
   materialId      String
   requestedPackets Int
+  requestedLooseUnits Int @default(0) // NEW: Loose units requested
   approvedPackets  Int?   // Set during approval
+  approvedLooseUnits Int? // NEW: Approved loose units
 
   // Relations
   srn      SRN      @relation(fields: [srnId], references: [id], onDelete: Cascade)
@@ -239,20 +310,21 @@ model DispatchOrder {
   dispatchNumber   String         @unique
   srnId            String         @unique
   manufacturerId   String
-  createdBy        String         // Admin who created
+  createdBy        String         // Manufacturer who created dispatch
   status           DispatchStatus @default(PENDING)
   createdAt        DateTime       @default(now())
   executedAt       DateTime?
   deliveryNotes    String?
 
-  // Pricing snapshots for invoice (Admin sets, Manufacturer never sees)
+  // Pricing snapshots for invoice
   totalPackets     Int
+  totalLooseUnits  Int            @default(0) // NEW
   subtotal         Decimal        @db.Decimal(12, 2)
 
   // Relations
   srn          SRN            @relation(fields: [srnId], references: [id])
   manufacturer User           @relation("DispatchManufacturer", fields: [manufacturerId], references: [id])
-  admin        User           @relation("DispatchAdmin", fields: [createdBy], references: [id])
+  creator      User           @relation("DispatchCreator", fields: [createdBy], references: [id])
   items        DispatchItem[]
   grn          GRN?
 
@@ -264,6 +336,7 @@ model DispatchItem {
   dispatchId String
   materialId String
   packets    Int
+  looseUnits Int     @default(0) // NEW: Loose units in dispatch
 
   // Price snapshots (for invoice)
   unitPrice  Decimal @db.Decimal(10, 2)
@@ -298,6 +371,7 @@ model GRN {
   retailer      User          @relation(fields: [retailerId], references: [id])
   items         GRNItem[]
   invoice       Invoice?
+  returns       Return[]      // Returns linked to this GRN
 
   @@map("grns")
 }
@@ -307,8 +381,9 @@ model GRNItem {
   grnId           String
   materialId      String
   expectedPackets Int
+  expectedLooseUnits Int @default(0) // NEW
   receivedPackets Int?
-  damagedPackets  Int?   @default(0)
+  receivedLooseUnits Int? // NEW: Received loose units
 
   // Relations
   grn      GRN      @relation(fields: [grnId], references: [id], onDelete: Cascade)
@@ -316,6 +391,70 @@ model GRNItem {
 
   @@unique([grnId, materialId])
   @@map("grn_items")
+}
+
+// =============================================================================
+// RETURNS - Replaces damaged goods tracking
+// =============================================================================
+
+model Return {
+  id              String       @id @default(uuid())
+  returnNumber    String       @unique
+  retailerId      String
+  manufacturerId  String
+  grnId           String?      // Optional - link to original GRN
+  status          ReturnStatus @default(RAISED)
+  reason          ReturnReason
+  reasonDetails   String?      // Free text explanation
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  resolvedAt      DateTime?
+  resolvedBy      String?      // Admin who resolved
+  resolutionNotes String?
+
+  // Relations
+  retailer        User         @relation("ReturnRetailer", fields: [retailerId], references: [id])
+  manufacturer    User         @relation("ReturnManufacturer", fields: [manufacturerId], references: [id])
+  grn             GRN?         @relation(fields: [grnId], references: [id])
+  resolver        User?        @relation("ReturnResolver", fields: [resolvedBy], references: [id])
+  items           ReturnItem[]
+
+  @@map("returns")
+}
+
+model ReturnItem {
+  id         String  @id @default(uuid())
+  returnId   String
+  materialId String
+  packets    Int     @default(0)
+  looseUnits Int     @default(0)
+
+  // Relations
+  return     Return   @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  material   Material @relation(fields: [materialId], references: [id])
+
+  @@unique([returnId, materialId])
+  @@map("return_items")
+}
+
+// =============================================================================
+// NOTIFICATIONS
+// =============================================================================
+
+model Notification {
+  id          String           @id @default(uuid())
+  userId      String           // Who receives notification
+  type        NotificationType
+  title       String
+  message     String
+  referenceId String?          // ID of related entity (return, SRN, etc.)
+  isRead      Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+
+  // Relations
+  user        User             @relation(fields: [userId], references: [id])
+
+  @@map("notifications")
 }
 
 // =============================================================================
@@ -357,6 +496,7 @@ model InvoiceItem {
   hsnCode        String
   gstRate        Decimal @db.Decimal(5, 2)
   packets        Int
+  looseUnits     Int     @default(0) // NEW
   unitsPerPacket Int
   unitPrice      Decimal @db.Decimal(10, 2)
   lineTotal      Decimal @db.Decimal(12, 2)
@@ -426,12 +566,13 @@ model InventoryTransaction {
   locationType    String          // 'MANUFACTURER' or 'RETAILER'
   locationId      String          // manufacturerId or retailerId
   packetsChange   Int             // Positive = add, Negative = remove
-  unitsChange     Int             @default(0) // For retailer loose units
-  referenceType   String          // 'PRODUCTION', 'SRN', 'DISPATCH', 'GRN', 'SALE'
+  unitsChange     Int             @default(0) // For loose units
+  referenceType   String          // 'PRODUCTION', 'SRN', 'DISPATCH', 'GRN', 'SALE', 'RETURN'
   referenceId     String
   packetsAfter    Int
   unitsAfter      Int             @default(0)
   blockedAfter    Int             @default(0)
+  blockedUnitsAfter Int           @default(0) // NEW: Blocked loose units after
   notes           String?
   createdAt       DateTime        @default(now())
 
