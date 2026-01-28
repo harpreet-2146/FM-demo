@@ -7,6 +7,7 @@ import {
 import { PrismaService } from '../../common/prisma.service';
 import { SequenceService } from '../../common/sequence.service';
 import { ManufacturerInventoryService } from '../manufacturer-inventory/manufacturer-inventory.service';
+import { NotificationService } from '../notification/notification.service';
 import { Money } from '../../common/utils/money.util';
 import {
   CreateDispatchOrderDto,
@@ -14,7 +15,7 @@ import {
   DispatchOrderResponseDto,
   DispatchOrderAdminResponseDto,
 } from './dto/dispatch.dto';
-import { DispatchStatus, SRNStatus } from '@prisma/client';
+import { DispatchStatus, SRNStatus, NotificationType } from '@prisma/client';
 
 @Injectable()
 export class DispatchService {
@@ -22,16 +23,17 @@ export class DispatchService {
     private readonly prisma: PrismaService,
     private readonly sequenceService: SequenceService,
     private readonly manufacturerInventory: ManufacturerInventoryService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   /**
    * Create dispatch order from approved SRN
-   * ADMIN ONLY
+   * MANUFACTURER ONLY (changed from Admin)
    */
   async create(
     dto: CreateDispatchOrderDto,
-    adminId: string,
-  ): Promise<DispatchOrderAdminResponseDto> {
+    manufacturerId: string,
+  ): Promise<DispatchOrderResponseDto> {
     // Get SRN with items
     const srn = await this.prisma.sRN.findUnique({
       where: { id: dto.srnId },
@@ -49,6 +51,11 @@ export class DispatchService {
       throw new NotFoundException('SRN not found');
     }
 
+    // Validate SRN is assigned to this manufacturer
+    if (srn.manufacturerId !== manufacturerId) {
+      throw new ForbiddenException('This SRN is not assigned to you');
+    }
+
     if (srn.status !== SRNStatus.APPROVED && srn.status !== SRNStatus.PARTIAL) {
       throw new BadRequestException('SRN must be approved before creating dispatch');
     }
@@ -62,44 +69,38 @@ export class DispatchService {
       throw new BadRequestException('Dispatch order already exists for this SRN');
     }
 
-    // Get manufacturer ID from the blocked inventory (first item)
-    // In a real system, this would be stored on the SRN during approval
-    const firstItem = srn.items[0];
-    const blockedInventory = await this.prisma.manufacturerInventory.findFirst({
-      where: {
-        materialId: firstItem.materialId,
-        blockedPackets: { gte: firstItem.approvedPackets || 0 },
-      },
-    });
-
-    if (!blockedInventory) {
-      throw new BadRequestException('No manufacturer inventory found with blocked packets');
-    }
-
-    const manufacturerId = blockedInventory.manufacturerId;
-
     // Generate dispatch number
     const dispatchNumber = await this.sequenceService.getNextNumber('DO');
 
     // Calculate totals and create items
     let totalPackets = 0;
+    let totalLooseUnits = 0;
     let subtotal = Money.zero();
     const itemsData: any[] = [];
 
     for (const item of srn.items) {
       const approvedPackets = item.approvedPackets || 0;
-      if (approvedPackets === 0) continue;
+      const approvedLooseUnits = item.approvedLooseUnits || 0;
+      
+      if (approvedPackets === 0 && approvedLooseUnits === 0) continue;
 
       totalPackets += approvedPackets;
+      totalLooseUnits += approvedLooseUnits;
 
       const mrp = Money.from(item.material.mrpPerPacket.toString());
       const unitPrice = Money.calculateUnitPrice(mrp, item.material.unitsPerPacket);
-      const lineTotal = Money.multiply(mrp, approvedPackets);
+      
+      // Calculate line total: (packets * mrpPerPacket) + (looseUnits * unitPrice)
+      const packetValue = Money.multiply(mrp, approvedPackets);
+      const unitValue = Money.multiply(unitPrice, approvedLooseUnits);
+      const lineTotal = Money.add(packetValue, unitValue);
+      
       subtotal = Money.add(subtotal, lineTotal);
 
       itemsData.push({
         materialId: item.materialId,
         packets: approvedPackets,
+        looseUnits: approvedLooseUnits,
         unitPrice: Money.toNumber(unitPrice),
         lineTotal: Money.toNumber(lineTotal),
         hsnCode: item.material.hsnCode,
@@ -107,16 +108,18 @@ export class DispatchService {
       });
     }
 
-    // Create dispatch order
+    // Create dispatch order - createdBy is now the Manufacturer
     const dispatch = await this.prisma.dispatchOrder.create({
       data: {
         dispatchNumber,
         srnId: srn.id,
         manufacturerId,
-        createdBy: adminId,
+        createdBy: manufacturerId, // Manufacturer creates dispatch
         status: DispatchStatus.PENDING,
         totalPackets,
+        totalLooseUnits,
         subtotal: Money.toNumber(subtotal),
+        deliveryNotes: dto.deliveryNotes,
         items: {
           create: itemsData,
         },
@@ -127,10 +130,10 @@ export class DispatchService {
             retailer: { select: { name: true } },
           },
         },
-        admin: { select: { name: true } },
+        creator: { select: { name: true } },
         items: {
           include: {
-            material: { select: { name: true } },
+            material: { select: { name: true, sqCode: true } },
           },
         },
       },
@@ -148,12 +151,23 @@ export class DispatchService {
           create: itemsData.map(item => ({
             materialId: item.materialId,
             expectedPackets: item.packets,
+            expectedLooseUnits: item.looseUnits,
           })),
         },
       },
     });
 
-    return this.mapToAdminResponse(dispatch);
+    // Notify Admin
+    const adminIds = await this.notificationService.getAdminUserIds();
+    await this.notificationService.createForMultipleUsers(
+      adminIds,
+      NotificationType.DISPATCH_CREATED,
+      'Dispatch Created',
+      `Dispatch ${dispatchNumber} created for SRN ${srn.srnNumber}`,
+      dispatch.id,
+    );
+
+    return this.mapToResponse(dispatch);
   }
 
   /**
@@ -170,7 +184,7 @@ export class DispatchService {
       include: {
         items: {
           include: {
-            material: { select: { name: true } },
+            material: { select: { name: true, sqCode: true } },
           },
         },
         srn: {
@@ -200,6 +214,7 @@ export class DispatchService {
           item.materialId,
           manufacturerId,
           item.packets,
+          item.looseUnits,
           manufacturerId,
           dispatch.id,
           tx,
@@ -211,10 +226,19 @@ export class DispatchService {
         data: {
           status: DispatchStatus.IN_TRANSIT,
           executedAt: new Date(),
-          deliveryNotes: dto.deliveryNotes,
+          deliveryNotes: dto.deliveryNotes || dispatch.deliveryNotes,
         },
       });
     });
+
+    // Notify retailer
+    await this.notificationService.create(
+      dispatch.srn.retailerId,
+      NotificationType.DISPATCH_EXECUTED,
+      'Goods Dispatched',
+      `Dispatch ${dispatch.dispatchNumber} is now in transit. Please prepare to receive goods.`,
+      dispatch.id,
+    );
 
     return this.findOne(id, manufacturerId);
   }
@@ -233,7 +257,7 @@ export class DispatchService {
         },
         items: {
           include: {
-            material: { select: { name: true } },
+            material: { select: { name: true, sqCode: true } },
           },
         },
       },
@@ -258,10 +282,10 @@ export class DispatchService {
             retailer: { select: { name: true } },
           },
         },
-        admin: { select: { name: true } },
+        creator: { select: { name: true } },
         items: {
           include: {
-            material: { select: { name: true } },
+            material: { select: { name: true, sqCode: true } },
           },
         },
       },
@@ -288,7 +312,7 @@ export class DispatchService {
         },
         items: {
           include: {
-            material: { select: { name: true } },
+            material: { select: { name: true, sqCode: true } },
           },
         },
       },
@@ -315,10 +339,10 @@ export class DispatchService {
             retailer: { select: { name: true } },
           },
         },
-        admin: { select: { name: true } },
+        creator: { select: { name: true } },
         items: {
           include: {
-            material: { select: { name: true } },
+            material: { select: { name: true, sqCode: true } },
           },
         },
       },
@@ -341,11 +365,14 @@ export class DispatchService {
       retailerName: dispatch.srn?.retailer?.name || '',
       status: dispatch.status,
       totalPackets: dispatch.totalPackets,
+      totalLooseUnits: dispatch.totalLooseUnits,
       items: dispatch.items.map((item: any) => ({
         id: item.id,
         materialId: item.materialId,
+        sqCode: item.material?.sqCode || '',
         materialName: item.material?.name || '',
         packets: item.packets,
+        looseUnits: item.looseUnits,
       })),
       createdAt: dispatch.createdAt,
       executedAt: dispatch.executedAt,
@@ -366,12 +393,15 @@ export class DispatchService {
       retailerName: dispatch.srn?.retailer?.name || '',
       status: dispatch.status,
       totalPackets: dispatch.totalPackets,
+      totalLooseUnits: dispatch.totalLooseUnits,
       subtotal: parseFloat(dispatch.subtotal.toString()),
       items: dispatch.items.map((item: any) => ({
         id: item.id,
         materialId: item.materialId,
+        sqCode: item.material?.sqCode || '',
         materialName: item.material?.name || '',
         packets: item.packets,
+        looseUnits: item.looseUnits,
         unitPrice: parseFloat(item.unitPrice.toString()),
         lineTotal: parseFloat(item.lineTotal.toString()),
         hsnCode: item.hsnCode,
@@ -381,7 +411,7 @@ export class DispatchService {
       executedAt: dispatch.executedAt,
       deliveryNotes: dispatch.deliveryNotes,
       createdBy: dispatch.createdBy,
-      createdByName: dispatch.admin?.name || '',
+      createdByName: dispatch.creator?.name || '',
     };
   }
 }
