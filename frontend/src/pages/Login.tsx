@@ -114,7 +114,7 @@ export default function Login() {
 
               {/* Email */}
               <div>
-                <label className="block text-sm text-slate-300 mb-2">
+                <label className="block text-xl text-slate-300 mb-2">
                   Email address
                 </label>
                 <input
@@ -123,7 +123,7 @@ export default function Login() {
                   autoComplete="username"
                   className="w-full rounded-xl bg-white/10
                   border border-white/20
-                  px-5 py-3 text-white text-[15px]
+                  px-5 py-3 text-white text-[20px]
                   placeholder-slate-400
                   focus:outline-none focus:ring-1 focus:ring-white/40"
                   placeholder="you@company.com"
@@ -137,7 +137,7 @@ export default function Login() {
 
               {/* Password */}
               <div>
-                <label className="block text-sm text-slate-300 mb-2">
+                <label className="block text-xl text-slate-300 mb-2">
                   Password
                 </label>
                 <input
@@ -146,7 +146,7 @@ export default function Login() {
                   autoComplete="current-password"
                   className="w-full rounded-xl bg-white/10
                   border border-white/20
-                  px-5 py-3 text-white text-[15px]
+                  px-5 py-3 text-white text-[20px]
                   placeholder-slate-400
                   focus:outline-none focus:ring-1 focus:ring-white/40"
                   placeholder="Your password"
@@ -174,7 +174,7 @@ export default function Login() {
                   bg-gradient-to-r from-transparent via-white/10 to-transparent
                   translate-x-[-100%] group-hover:translate-x-[100%]
                   transition-transform duration-700" />
-                <span className="relative flex items-center justify-center gap-2 text-[15px]">
+                <span className="relative flex items-center justify-center gap-2 text-[20px]">
                   <LogIn size={18} />
                   {isLoading ? 'Signing in…' : 'Sign in'}
                 </span>
