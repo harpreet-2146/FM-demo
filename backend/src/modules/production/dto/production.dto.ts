@@ -1,12 +1,17 @@
-import { IsString, IsNotEmpty, IsInt, IsPositive, IsDateString } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { IsString, IsNotEmpty, IsInt, IsPositive, IsDateString, IsOptional, Min } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
 export class CreateProductionBatchDto {
-  @ApiProperty({ description: 'Material ID' })
+  @ApiPropertyOptional({ description: 'Material ID (provide either materialId or sqCode)' })
   @IsString()
-  @IsNotEmpty({ message: 'Material ID is required' })
-  materialId: string;
+  @IsOptional()
+  materialId?: string;
+
+  @ApiPropertyOptional({ description: 'Material SQ Code (provide either materialId or sqCode)' })
+  @IsString()
+  @IsOptional()
+  sqCode?: string;
 
   @ApiProperty({ example: 'BATCH-2024-001', description: 'Unique batch number' })
   @IsString()
@@ -25,9 +30,16 @@ export class CreateProductionBatchDto {
 
   @ApiProperty({ example: 100, description: 'Number of packets produced' })
   @IsInt({ message: 'Packets produced must be an integer' })
-  @IsPositive({ message: 'Packets produced must be positive' })
+  @Min(0, { message: 'Packets produced cannot be negative' })
   @Type(() => Number)
   packetsProduced: number;
+
+  @ApiPropertyOptional({ example: 50, description: 'Number of loose units produced' })
+  @IsInt({ message: 'Loose units produced must be an integer' })
+  @Min(0, { message: 'Loose units produced cannot be negative' })
+  @IsOptional()
+  @Type(() => Number)
+  looseUnitsProduced?: number;
 }
 
 export class ProductionBatchResponseDto {
@@ -36,6 +48,9 @@ export class ProductionBatchResponseDto {
 
   @ApiProperty()
   materialId: string;
+
+  @ApiProperty()
+  sqCode: string;
 
   @ApiProperty()
   materialName: string;
@@ -56,6 +71,9 @@ export class ProductionBatchResponseDto {
   packetsProduced: number;
 
   @ApiProperty()
+  looseUnitsProduced: number;
+
+  @ApiProperty()
   hsnCodeSnapshot: string;
 
   @ApiProperty()
@@ -68,6 +86,9 @@ export class ProductionSummaryDto {
 
   @ApiProperty()
   totalPacketsProduced: number;
+
+  @ApiProperty()
+  totalLooseUnitsProduced: number;
 
   @ApiProperty({ type: [ProductionBatchResponseDto] })
   recentBatches: ProductionBatchResponseDto[];
