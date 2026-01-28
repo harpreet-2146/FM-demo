@@ -33,6 +33,7 @@ export class MaterialsController {
   @ApiResponse({ status: 201, type: MaterialResponseDto })
   @ApiResponse({ status: 400, description: 'Missing required fields' })
   @ApiResponse({ status: 403, description: 'Admin access required' })
+  @ApiResponse({ status: 409, description: 'SQ Code already exists' })
   async create(
     @Body() dto: CreateMaterialDto,
     @CurrentUser('id') adminId: string,
@@ -61,6 +62,18 @@ export class MaterialsController {
   }
 
   /**
+   * Get material by SQ Code
+   */
+  @Get('by-sqcode/:sqCode')
+  @Roles(Role.ADMIN, Role.MANUFACTURER, Role.RETAILER)
+  @ApiOperation({ summary: 'Get material by SQ Code' })
+  @ApiResponse({ status: 200, type: MaterialResponseDto })
+  @ApiResponse({ status: 404, description: 'Material not found' })
+  async findBySqCode(@Param('sqCode') sqCode: string): Promise<MaterialResponseDto> {
+    return this.materialsService.findBySqCode(sqCode);
+  }
+
+  /**
    * Get material by ID
    */
   @Get(':id')
@@ -76,6 +89,7 @@ export class MaterialsController {
    * Update material
    * ADMIN ONLY
    * RULES:
+   * - sqCode is NEVER updatable
    * - unitsPerPacket is NEVER updatable
    * - hsnCode and gstRate locked after production
    */
