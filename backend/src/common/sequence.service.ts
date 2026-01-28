@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from './prisma.service';
 
-export type SequencePrefix = 'SRN' | 'DO' | 'GRN' | 'INV' | 'SALE' | 'BATCH';
+export type SequencePrefix = 'SRN' | 'DO' | 'GRN' | 'INV' | 'SALE' | 'BATCH' | 'RET';
 
 @Injectable()
 export class SequenceService {
