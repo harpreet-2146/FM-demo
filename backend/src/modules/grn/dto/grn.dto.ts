@@ -15,12 +15,14 @@ export class ConfirmGRNItemDto {
   @Type(() => Number)
   receivedPackets: number;
 
-  @ApiPropertyOptional({ description: 'Damaged packets (subset of received)' })
+  @ApiPropertyOptional({ description: 'Actual loose units received' })
   @IsInt()
   @Min(0)
   @IsOptional()
   @Type(() => Number)
-  damagedPackets?: number;
+  receivedLooseUnits?: number;
+
+  // damagedPackets REMOVED - use Returns workflow instead
 }
 
 export class ConfirmGRNDto {
@@ -47,13 +49,21 @@ export class GRNItemResponseDto {
   materialName: string;
 
   @ApiProperty()
+  sqCode: string;
+
+  @ApiProperty()
   expectedPackets: number;
+
+  @ApiProperty()
+  expectedLooseUnits: number;
 
   @ApiPropertyOptional()
   receivedPackets?: number;
 
   @ApiPropertyOptional()
-  damagedPackets?: number;
+  receivedLooseUnits?: number;
+
+  // damagedPackets REMOVED - use Returns workflow instead
 }
 
 export class GRNResponseDto {
