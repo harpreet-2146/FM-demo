@@ -18,7 +18,7 @@ export class RetailerInventoryService {
       where: { retailerId },
       include: {
         material: {
-          select: { name: true, unitsPerPacket: true },
+          select: { name: true, sqCode: true, unitsPerPacket: true },
         },
       },
       orderBy: { material: { name: 'asc' } },
@@ -48,7 +48,7 @@ export class RetailerInventoryService {
         materialId_retailerId: { materialId, retailerId },
       },
       include: {
-        material: { select: { name: true, unitsPerPacket: true } },
+        material: { select: { name: true, sqCode: true, unitsPerPacket: true } },
       },
     });
 
@@ -57,18 +57,24 @@ export class RetailerInventoryService {
 
   /**
    * Receive goods from GRN
-   * Adds packets to retailer inventory
+   * Adds packets and loose units to retailer inventory
    */
   async receiveGoods(
     materialId: string,
     retailerId: string,
     packets: number,
+    looseUnits: number,
     userId: string,
     referenceId: string,
     tx?: any,
   ): Promise<void> {
-    if (packets <= 0) {
-      throw new BadRequestException('Packets must be positive');
+    if (packets < 0 || looseUnits < 0) {
+      throw new BadRequestException('Packets and loose units must be non-negative');
+    }
+
+    if (packets === 0 && looseUnits === 0) {
+      // Nothing to receive, skip
+      return;
     }
 
     const prisma = tx || this.prisma;
@@ -80,12 +86,13 @@ export class RetailerInventoryService {
       },
       update: {
         fullPackets: { increment: packets },
+        looseUnits: { increment: looseUnits },
       },
       create: {
         materialId,
         retailerId,
         fullPackets: packets,
-        looseUnits: 0,
+        looseUnits: looseUnits,
       },
     });
 
@@ -98,7 +105,7 @@ export class RetailerInventoryService {
         locationType: 'RETAILER',
         locationId: retailerId,
         packetsChange: packets,
-        unitsChange: 0,
+        unitsChange: looseUnits,
         referenceType: 'GRN',
         referenceId,
         packetsAfter: inventory.fullPackets,
@@ -271,6 +278,7 @@ export class RetailerInventoryService {
       id: inventory.id,
       materialId: inventory.materialId,
       materialName: inventory.material?.name || '',
+      sqCode: inventory.material?.sqCode || '',
       retailerId: inventory.retailerId,
       fullPackets: inventory.fullPackets,
       looseUnits: inventory.looseUnits,
