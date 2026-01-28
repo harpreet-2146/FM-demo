@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma.service';
 import { Money } from '../../common/utils/money.util';
@@ -24,6 +25,9 @@ export class MaterialsService {
    */
   async create(dto: CreateMaterialDto, adminId: string): Promise<MaterialResponseDto> {
     // Validate all required fields are present (class-validator handles this, but double-check)
+    if (!dto.sqCode || dto.sqCode.trim() === '') {
+      throw new BadRequestException('SQ Code is required - no default value allowed');
+    }
     if (!dto.hsnCode || dto.hsnCode.trim() === '') {
       throw new BadRequestException('HSN code is required - no default value allowed');
     }
@@ -37,8 +41,18 @@ export class MaterialsService {
       throw new BadRequestException('MRP per packet is required and must be positive');
     }
 
+    // Check sqCode uniqueness
+    const existingSqCode = await this.prisma.material.findUnique({
+      where: { sqCode: dto.sqCode.toUpperCase() },
+    });
+
+    if (existingSqCode) {
+      throw new ConflictException(`SQ Code ${dto.sqCode} already exists`);
+    }
+
     const material = await this.prisma.material.create({
       data: {
+        sqCode: dto.sqCode.toUpperCase(),
         name: dto.name,
         description: dto.description,
         hsnCode: dto.hsnCode,
@@ -87,6 +101,56 @@ export class MaterialsService {
   }
 
   /**
+   * Get material by SQ Code
+   */
+  async findBySqCode(sqCode: string): Promise<MaterialResponseDto> {
+    const material = await this.prisma.material.findUnique({
+      where: { sqCode: sqCode.toUpperCase() },
+    });
+
+    if (!material) {
+      throw new NotFoundException(`Material with SQ Code ${sqCode} not found`);
+    }
+
+    return this.mapToResponse(material);
+  }
+
+  /**
+   * Resolve material ID from either ID (UUID) or SQ Code
+   * Useful for APIs that accept either identifier
+   */
+  async resolveMaterialId(identifier: string): Promise<string> {
+    // Check if it's a UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    
+    if (uuidRegex.test(identifier)) {
+      // It's a UUID, verify it exists
+      const material = await this.prisma.material.findUnique({
+        where: { id: identifier },
+        select: { id: true },
+      });
+
+      if (!material) {
+        throw new NotFoundException(`Material with ID ${identifier} not found`);
+      }
+
+      return material.id;
+    }
+
+    // Assume it's an SQ Code
+    const material = await this.prisma.material.findUnique({
+      where: { sqCode: identifier.toUpperCase() },
+      select: { id: true },
+    });
+
+    if (!material) {
+      throw new NotFoundException(`Material with SQ Code ${identifier} not found`);
+    }
+
+    return material.id;
+  }
+
+  /**
    * Get raw material entity (for internal use)
    */
   async findOneEntity(id: string) {
@@ -102,9 +166,25 @@ export class MaterialsService {
   }
 
   /**
+   * Get material entity by SQ Code (for internal use)
+   */
+  async findEntityBySqCode(sqCode: string) {
+    const material = await this.prisma.material.findUnique({
+      where: { sqCode: sqCode.toUpperCase() },
+    });
+
+    if (!material) {
+      throw new NotFoundException(`Material with SQ Code ${sqCode} not found`);
+    }
+
+    return material;
+  }
+
+  /**
    * Update material
    * RULES:
-   * - unitsPerPacket is ALWAYS immutable (not even in DTO)
+   * - sqCode is NEVER updatable
+   * - unitsPerPacket is NEVER updatable
    * - hsnCode is immutable after hasProduction = true
    * - gstRate is immutable after hasProduction = true
    */
@@ -137,7 +217,7 @@ export class MaterialsService {
       }
     }
 
-    // Note: unitsPerPacket is not in UpdateMaterialDto, so it can never be updated
+    // Note: sqCode and unitsPerPacket are not in UpdateMaterialDto, so they can never be updated
 
     const updatedMaterial = await this.prisma.material.update({
       where: { id },
@@ -205,6 +285,7 @@ export class MaterialsService {
 
     return {
       id: material.id,
+      sqCode: material.sqCode,
       name: material.name,
       description: material.description,
       hsnCode: material.hsnCode,
