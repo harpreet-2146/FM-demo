@@ -8,6 +8,7 @@ import {
   IsEnum,
   IsOptional,
   MaxLength,
+  Matches,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
@@ -22,6 +23,13 @@ export enum CommissionType {
  * ALL FIELDS REQUIRED - No defaults, no hardcoding
  */
 export class CreateMaterialDto {
+  @ApiProperty({ example: 'SQ-COOKIE-001', description: 'Unique SQ Code - IMMUTABLE after creation' })
+  @IsString()
+  @IsNotEmpty({ message: 'SQ Code is required' })
+  @MaxLength(50)
+  @Matches(/^[A-Z0-9\-_]+$/, { message: 'SQ Code must be alphanumeric with hyphens/underscores only (uppercase)' })
+  sqCode: string;
+
   @ApiProperty({ example: 'Chocolate Chip Cookies', description: 'Material name' })
   @IsString()
   @IsNotEmpty({ message: 'Name is required' })
@@ -71,7 +79,7 @@ export class CreateMaterialDto {
 
 /**
  * Update Material DTO
- * CANNOT update: unitsPerPacket (always immutable)
+ * CANNOT update: sqCode, unitsPerPacket (always immutable)
  * CANNOT update after production: hsnCode, gstRate
  */
 export class UpdateMaterialDto {
@@ -122,12 +130,15 @@ export class UpdateMaterialDto {
   @IsOptional()
   isActive?: boolean;
 
-  // NOTE: unitsPerPacket is NOT included - it is ALWAYS immutable
+  // NOTE: sqCode and unitsPerPacket are NOT included - they are ALWAYS immutable
 }
 
 export class MaterialResponseDto {
   @ApiProperty()
   id: string;
+
+  @ApiProperty({ description: 'Unique SQ Code - IMMUTABLE' })
+  sqCode: string;
 
   @ApiProperty()
   name: string;
