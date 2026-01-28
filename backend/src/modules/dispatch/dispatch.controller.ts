@@ -28,19 +28,20 @@ export class DispatchController {
 
   /**
    * Create dispatch order from approved SRN
-   * ADMIN ONLY
+   * MANUFACTURER ONLY (changed from Admin)
    */
   @Post()
-  @Roles(Role.ADMIN)
+  @Roles(Role.MANUFACTURER)
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Create dispatch order (Admin only)' })
-  @ApiResponse({ status: 201, type: DispatchOrderAdminResponseDto })
+  @ApiOperation({ summary: 'Create dispatch order (Manufacturer only)' })
+  @ApiResponse({ status: 201, type: DispatchOrderResponseDto })
   @ApiResponse({ status: 400, description: 'SRN not approved or dispatch exists' })
+  @ApiResponse({ status: 403, description: 'SRN not assigned to you' })
   async create(
     @Body() dto: CreateDispatchOrderDto,
-    @CurrentUser('id') adminId: string,
-  ): Promise<DispatchOrderAdminResponseDto> {
-    return this.dispatchService.create(dto, adminId);
+    @CurrentUser('id') manufacturerId: string,
+  ): Promise<DispatchOrderResponseDto> {
+    return this.dispatchService.create(dto, manufacturerId);
   }
 
   /**
