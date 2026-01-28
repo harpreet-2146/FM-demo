@@ -11,6 +11,9 @@ export class RetailerInventoryResponseDto {
   materialName: string;
 
   @ApiProperty()
+  sqCode: string;
+
+  @ApiProperty()
   retailerId: string;
 
   @ApiProperty({ description: 'Unopened packets' })
