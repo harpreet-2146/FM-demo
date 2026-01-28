@@ -22,6 +22,10 @@ import { GRNModule } from './modules/grn/grn.module';
 import { InvoiceModule } from './modules/invoice/invoice.module';
 import { SaleModule } from './modules/sale/sale.module';
 import { CommissionModule } from './modules/commission/commission.module';
+import { AssignmentModule } from './modules/assignment/assignment.module';
+import { ReturnModule } from './modules/return/return.module';
+import { NotificationModule } from './modules/notification/notification.module';
+import { AdminReportsModule } from './modules/admin-reports/admin-reports.module';
 
 @Module({
   imports: [
@@ -44,6 +48,12 @@ import { CommissionModule } from './modules/commission/commission.module';
     InvoiceModule,
     SaleModule,
     CommissionModule,
+    
+    // New modules
+    AssignmentModule,
+    ReturnModule,
+    NotificationModule,
+    AdminReportsModule,
   ],
   providers: [
     PrismaService,
