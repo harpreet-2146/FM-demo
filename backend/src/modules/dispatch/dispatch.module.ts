@@ -4,9 +4,10 @@ import { DispatchService } from './dispatch.service';
 import { PrismaService } from '../../common/prisma.service';
 import { SequenceService } from '../../common/sequence.service';
 import { ManufacturerInventoryModule } from '../manufacturer-inventory/manufacturer-inventory.module';
+import { NotificationModule } from '../notification/notification.module';
 
 @Module({
-  imports: [ManufacturerInventoryModule],
+  imports: [ManufacturerInventoryModule, NotificationModule],
   controllers: [DispatchController],
   providers: [DispatchService, PrismaService, SequenceService],
   exports: [DispatchService],
