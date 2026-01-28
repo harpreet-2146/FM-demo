@@ -7,6 +7,11 @@ export class CreateDispatchOrderDto {
   @IsString()
   @IsNotEmpty()
   srnId: string;
+
+  @ApiPropertyOptional({ description: 'Delivery notes' })
+  @IsString()
+  @IsOptional()
+  deliveryNotes?: string;
 }
 
 export class ExecuteDispatchDto {
@@ -24,10 +29,16 @@ export class DispatchItemResponseDto {
   materialId: string;
 
   @ApiProperty()
+  sqCode: string;
+
+  @ApiProperty()
   materialName: string;
 
   @ApiProperty()
   packets: number;
+
+  @ApiProperty()
+  looseUnits: number;
 }
 
 export class DispatchItemAdminResponseDto extends DispatchItemResponseDto {
@@ -69,6 +80,9 @@ export class DispatchOrderResponseDto {
 
   @ApiProperty()
   totalPackets: number;
+
+  @ApiProperty()
+  totalLooseUnits: number;
 
   @ApiProperty({ type: [DispatchItemResponseDto] })
   items: DispatchItemResponseDto[];
