@@ -12,3 +12,6 @@ build/
 # KEEP migrations committed
 # Ignore only generated client (if present)
 backend/prisma/generated/
+
+
+.env
