@@ -8,6 +8,9 @@ export class ManufacturerInventoryResponseDto {
   materialId: string;
 
   @ApiProperty()
+  sqCode: string;
+
+  @ApiProperty()
   materialName: string;
 
   @ApiProperty()
@@ -22,6 +25,15 @@ export class ManufacturerInventoryResponseDto {
   @ApiProperty({ description: 'Total packets (available + blocked)' })
   totalPackets: number;
 
+  @ApiProperty({ description: 'Available loose units (not blocked)' })
+  availableLooseUnits: number;
+
+  @ApiProperty({ description: 'Loose units blocked for approved SRNs' })
+  blockedLooseUnits: number;
+
+  @ApiProperty({ description: 'Total loose units (available + blocked)' })
+  totalLooseUnits: number;
+
   @ApiProperty()
   updatedAt: Date;
 }
@@ -35,6 +47,12 @@ export class ManufacturerInventorySummaryDto {
 
   @ApiProperty()
   totalBlockedPackets: number;
+
+  @ApiProperty()
+  totalAvailableLooseUnits: number;
+
+  @ApiProperty()
+  totalBlockedLooseUnits: number;
 
   @ApiProperty({ type: [ManufacturerInventoryResponseDto] })
   items: ManufacturerInventoryResponseDto[];
