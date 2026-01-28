@@ -31,6 +31,7 @@ export class SRNController {
   @ApiOperation({ summary: 'Create new SRN (Retailer only)' })
   @ApiResponse({ status: 201, type: SRNResponseDto })
   @ApiResponse({ status: 400, description: 'Invalid material or duplicate items' })
+  @ApiResponse({ status: 403, description: 'Not assigned to manufacturer' })
   async create(
     @Body() dto: CreateSRNDto,
     @CurrentUser('id') retailerId: string,
@@ -91,6 +92,22 @@ export class SRNController {
   }
 
   /**
+   * Get SRNs assigned to me (Manufacturer)
+   * MANUFACTURER ONLY - shows approved SRNs pending dispatch
+   */
+  @Get('assigned')
+  @Roles(Role.MANUFACTURER)
+  @ApiOperation({ summary: 'Get SRNs assigned to me (Manufacturer only)' })
+  @ApiQuery({ name: 'status', enum: SRNStatus, required: false })
+  @ApiResponse({ status: 200, type: [SRNResponseDto] })
+  async getAssignedSRNs(
+    @CurrentUser('id') manufacturerId: string,
+    @Query('status') status?: SRNStatus,
+  ): Promise<SRNResponseDto[]> {
+    return this.srnService.findByManufacturer(manufacturerId, status);
+  }
+
+  /**
    * Get all SRNs
    * ADMIN ONLY
    */
@@ -121,7 +138,7 @@ export class SRNController {
    * ADMIN or own retailer
    */
   @Get(':id')
-  @Roles(Role.ADMIN, Role.RETAILER)
+  @Roles(Role.ADMIN, Role.RETAILER, Role.MANUFACTURER)
   @ApiOperation({ summary: 'Get SRN by ID' })
   @ApiResponse({ status: 200, type: SRNResponseDto })
   @ApiResponse({ status: 404, description: 'SRN not found' })
