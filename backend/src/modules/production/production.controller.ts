@@ -64,15 +64,18 @@ export class ProductionController {
   @Roles(Role.MANUFACTURER)
   @ApiOperation({ summary: 'Get my production batches (Manufacturer only)' })
   @ApiQuery({ name: 'materialId', required: false })
+  @ApiQuery({ name: 'sqCode', required: false, description: 'Filter by SQ Code' })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiResponse({ status: 200, type: [ProductionBatchResponseDto] })
   async getMyBatches(
     @CurrentUser('id') manufacturerId: string,
     @Query('materialId') materialId?: string,
+    @Query('sqCode') sqCode?: string,
     @Query('limit') limit?: string,
   ): Promise<ProductionBatchResponseDto[]> {
     return this.productionService.getByManufacturer(manufacturerId, {
       materialId,
+      sqCode,
       limit: limit ? parseInt(limit, 10) : undefined,
     });
   }
