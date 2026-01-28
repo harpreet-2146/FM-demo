@@ -31,7 +31,7 @@ export class GRNService {
         dispatchOrder: true,
         items: {
           include: {
-            material: { select: { name: true } },
+            material: { select: { name: true, sqCode: true } },
           },
         },
         retailer: { select: { name: true } },
@@ -54,24 +54,19 @@ export class GRNService {
       throw new BadRequestException('Dispatch not yet executed');
     }
 
-    // Build received map
-    const receivedMap = new Map<string, { received: number; damaged: number }>();
+    // Build received map - now with packets and looseUnits (no damaged)
+    const receivedMap = new Map<string, { packets: number; looseUnits: number }>();
     for (const item of dto.items) {
       receivedMap.set(item.materialId, {
-        received: item.receivedPackets,
-        damaged: item.damagedPackets || 0,
+        packets: item.receivedPackets,
+        looseUnits: item.receivedLooseUnits ?? 0,
       });
     }
 
-    // Validate all items
+    // Validate all items are present
     for (const item of grn.items) {
       if (!receivedMap.has(item.materialId)) {
         throw new BadRequestException(`Missing confirmation for material ${item.materialId}`);
-      }
-
-      const received = receivedMap.get(item.materialId)!;
-      if (received.damaged > received.received) {
-        throw new BadRequestException('Damaged packets cannot exceed received packets');
       }
     }
 
@@ -80,22 +75,24 @@ export class GRNService {
       // Update GRN items and add to retailer inventory
       for (const item of grn.items) {
         const received = receivedMap.get(item.materialId)!;
-        const goodPackets = received.received - received.damaged;
 
+        // Update GRN item with received quantities
         await tx.gRNItem.update({
           where: { id: item.id },
           data: {
-            receivedPackets: received.received,
-            damagedPackets: received.damaged,
+            receivedPackets: received.packets,
+            receivedLooseUnits: received.looseUnits,
           },
         });
 
-        // Add good packets to retailer inventory
-        if (goodPackets > 0) {
+        // Add received goods to retailer inventory
+        // Note: If there are damaged goods, retailer should raise a Return separately
+        if (received.packets > 0 || received.looseUnits > 0) {
           await this.retailerInventory.receiveGoods(
             item.materialId,
             retailerId,
-            goodPackets,
+            received.packets,
+            received.looseUnits,
             retailerId,
             grn.id,
             tx,
@@ -135,7 +132,7 @@ export class GRNService {
         dispatchOrder: true,
         items: {
           include: {
-            material: { select: { name: true } },
+            material: { select: { name: true, sqCode: true } },
           },
         },
         retailer: { select: { name: true } },
@@ -165,7 +162,7 @@ export class GRNService {
         dispatchOrder: true,
         items: {
           include: {
-            material: { select: { name: true } },
+            material: { select: { name: true, sqCode: true } },
           },
         },
         retailer: { select: { name: true } },
@@ -192,7 +189,7 @@ export class GRNService {
         dispatchOrder: true,
         items: {
           include: {
-            material: { select: { name: true } },
+            material: { select: { name: true, sqCode: true } },
           },
         },
         retailer: { select: { name: true } },
@@ -220,9 +217,11 @@ export class GRNService {
         id: item.id,
         materialId: item.materialId,
         materialName: item.material?.name || '',
+        sqCode: item.material?.sqCode || '',
         expectedPackets: item.expectedPackets,
+        expectedLooseUnits: item.expectedLooseUnits ?? 0,
         receivedPackets: item.receivedPackets,
-        damagedPackets: item.damagedPackets,
+        receivedLooseUnits: item.receivedLooseUnits,
       })),
       createdAt: grn.createdAt,
       confirmedAt: grn.confirmedAt,
