@@ -1,22 +1,73 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Layout, PageHeader, LoadingSpinner, Card, EmptyState, StatCard } from '../../components/Layout';
-import { manufacturerInventoryApi, retailerInventoryApi, usersApi } from '../../services/api';
-import { Warehouse, Package, Lock, Factory, Store } from 'lucide-react';
+import { usersApi } from '../../services/api';
+import api from '../../services/api';
+import { Warehouse, Package, Lock, Factory, Store, ChevronDown, ChevronRight } from 'lucide-react';
 
 type ViewMode = 'manufacturer' | 'retailer';
 
+// Types matching backend DTOs
+interface ManufacturerInventoryReport {
+  manufacturerId: string;
+  manufacturerName: string;
+  totalMaterials: number;
+  totalPackets: number;
+  blockedPackets: number;
+  availablePackets: number;
+  totalLooseUnits: number;
+  blockedLooseUnits: number;
+  availableLooseUnits: number;
+}
+
+interface ManufacturerDetailItem {
+  materialId: string;
+  sqCode: string;
+  materialName: string;
+  unitsPerPacket: number;
+  totalPackets: number;
+  blockedPackets: number;
+  availablePackets: number;
+  totalLooseUnits: number;
+  blockedLooseUnits: number;
+  availableLooseUnits: number;
+}
+
+interface ManufacturerDetailResponse {
+  manufacturerId: string;
+  manufacturerName: string;
+  items: ManufacturerDetailItem[];
+}
+
+interface RetailerInventoryReport {
+  retailerId: string;
+  retailerName: string;
+  totalMaterials: number;
+  totalPackets: number;
+  totalLooseUnits: number;
+}
+
 export default function AdminInventory() {
   const [viewMode, setViewMode] = useState<ViewMode>('manufacturer');
+  const [expandedManufacturer, setExpandedManufacturer] = useState<string | null>(null);
 
-  const { data: mfgInventory, isLoading: loadingMfg } = useQuery({
-    queryKey: ['all-manufacturer-inventory'],
-    queryFn: () => manufacturerInventoryApi.getAll(),
+  // Fetch manufacturer summary
+  const { data: mfgSummary, isLoading: loadingMfg } = useQuery({
+    queryKey: ['admin-mfg-inventory-summary'],
+    queryFn: () => api.get<ManufacturerInventoryReport[]>('/admin/reports/inventory/by-manufacturer'),
   });
 
-  const { data: retailerInventory, isLoading: loadingRetailer } = useQuery({
-    queryKey: ['all-retailer-inventory'],
-    queryFn: () => retailerInventoryApi.getAll(),
+  // Fetch retailer summary
+  const { data: retailerSummary, isLoading: loadingRetailer } = useQuery({
+    queryKey: ['admin-retailer-inventory-summary'],
+    queryFn: () => api.get<RetailerInventoryReport[]>('/admin/reports/inventory/retailers'),
+  });
+
+  // Fetch detail for expanded manufacturer
+  const { data: mfgDetail, isLoading: loadingDetail } = useQuery({
+    queryKey: ['admin-mfg-inventory-detail', expandedManufacturer],
+    queryFn: () => api.get<ManufacturerDetailResponse>(`/admin/reports/inventory/manufacturer/${expandedManufacturer}`),
+    enabled: !!expandedManufacturer,
   });
 
   const { data: manufacturers } = useQuery({
@@ -33,16 +84,24 @@ export default function AdminInventory() {
 
   if (isLoading) return <Layout><LoadingSpinner /></Layout>;
 
-  const mfgItems = mfgInventory?.data || [];
-  const retailerItems = retailerInventory?.data || [];
+  const mfgItems = mfgSummary?.data || [];
+  const retailerItems = retailerSummary?.data || [];
 
   // Calculate totals for manufacturer inventory
   const mfgTotalAvailable = mfgItems.reduce((sum, item) => sum + item.availablePackets, 0);
   const mfgTotalBlocked = mfgItems.reduce((sum, item) => sum + item.blockedPackets, 0);
+  const mfgTotalLoose = mfgItems.reduce((sum, item) => sum + item.totalLooseUnits, 0);
+  const mfgTotalBlockedLoose = mfgItems.reduce((sum, item) => sum + item.blockedLooseUnits, 0);
+  const mfgTotalMaterials = mfgItems.reduce((sum, item) => sum + item.totalMaterials, 0);
 
   // Calculate totals for retailer inventory
-  const retailerTotalPackets = retailerItems.reduce((sum, item) => sum + item.fullPackets, 0);
-  const retailerTotalLoose = retailerItems.reduce((sum, item) => sum + item.looseUnits, 0);
+  const retailerTotalPackets = retailerItems.reduce((sum, item) => sum + item.totalPackets, 0);
+  const retailerTotalLoose = retailerItems.reduce((sum, item) => sum + item.totalLooseUnits, 0);
+  const retailerTotalMaterials = retailerItems.reduce((sum, item) => sum + item.totalMaterials, 0);
+
+  const toggleManufacturer = (manufacturerId: string) => {
+    setExpandedManufacturer(prev => prev === manufacturerId ? null : manufacturerId);
+  };
 
   return (
     <Layout>
@@ -72,15 +131,15 @@ export default function AdminInventory() {
       {viewMode === 'manufacturer' ? (
         <>
           {/* Manufacturer Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-6 mb-8">
             <StatCard
               title="Manufacturers"
-              value={manufacturers?.data?.length || 0}
+              value={mfgItems.length}
               icon={Factory}
             />
             <StatCard
               title="Total Materials"
-              value={new Set(mfgItems.map(i => i.materialId)).size}
+              value={mfgTotalMaterials}
               icon={Package}
             />
             <StatCard
@@ -92,6 +151,18 @@ export default function AdminInventory() {
             <StatCard
               title="Blocked Packets"
               value={mfgTotalBlocked}
+              subtitle="Reserved for SRNs"
+              icon={Lock}
+            />
+            <StatCard
+              title="Loose Units"
+              value={mfgTotalLoose}
+              subtitle="Available"
+              icon={Package}
+            />
+            <StatCard
+              title="Blocked Loose"
+              value={mfgTotalBlockedLoose}
               subtitle="Reserved for SRNs"
               icon={Lock}
             />
@@ -112,33 +183,98 @@ export default function AdminInventory() {
                 <table className="w-full">
                   <thead className="bg-dark-800">
                     <tr>
+                      <th></th>
                       <th>Manufacturer</th>
-                      <th>Material</th>
-                      <th>Available</th>
-                      <th>Blocked</th>
-                      <th>Total</th>
-                      <th>Last Updated</th>
+                      <th>Materials</th>
+                      <th>Available Pkt</th>
+                      <th>Blocked Pkt</th>
+                      <th>Available Loose</th>
+                      <th>Blocked Loose</th>
+                      <th>Total Pkt</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-dark-700">
                     {mfgItems.map((item) => (
-                      <tr key={item.id} className="hover:bg-dark-800/50">
-                        <td className="font-medium text-white">{item.manufacturerName || 'Unknown'}</td>
-                        <td>{item.materialName}</td>
-                        <td className="text-green-400">{item.availablePackets} pkt</td>
-                        <td className="text-yellow-400">
-                          {item.blockedPackets > 0 ? (
-                            <span className="flex items-center gap-1">
-                              <Lock size={14} />
-                              {item.blockedPackets} pkt
-                            </span>
-                          ) : (
-                            '0 pkt'
-                          )}
-                        </td>
-                        <td className="text-white font-medium">{item.totalPackets} pkt</td>
-                        <td className="text-dark-400">{new Date(item.updatedAt).toLocaleString()}</td>
-                      </tr>
+                      <React.Fragment key={item.manufacturerId}>
+                        <tr 
+                          className="hover:bg-dark-800/50 cursor-pointer"
+                          onClick={() => toggleManufacturer(item.manufacturerId)}
+                        >
+                          <td className="w-10">
+                            {expandedManufacturer === item.manufacturerId ? (
+                              <ChevronDown size={18} className="text-dark-400" />
+                            ) : (
+                              <ChevronRight size={18} className="text-dark-400" />
+                            )}
+                          </td>
+                          <td className="font-medium text-white">{item.manufacturerName}</td>
+                          <td>{item.totalMaterials}</td>
+                          <td className="text-green-400">{item.availablePackets}</td>
+                          <td className="text-yellow-400">
+                            {item.blockedPackets > 0 ? (
+                              <span className="flex items-center gap-1">
+                                <Lock size={14} />
+                                {item.blockedPackets}
+                              </span>
+                            ) : (
+                              '0'
+                            )}
+                          </td>
+                          <td className="text-green-400">{item.availableLooseUnits}</td>
+                          <td className="text-yellow-400">
+                            {item.blockedLooseUnits > 0 ? (
+                              <span className="flex items-center gap-1">
+                                <Lock size={14} />
+                                {item.blockedLooseUnits}
+                              </span>
+                            ) : (
+                              '0'
+                            )}
+                          </td>
+                          <td className="text-white font-medium">{item.totalPackets}</td>
+                        </tr>
+                        {/* Expanded detail row */}
+                        {expandedManufacturer === item.manufacturerId && (
+                          <tr>
+                            <td colSpan={8} className="bg-dark-800/30 p-0">
+                              {loadingDetail ? (
+                                <div className="p-4 text-center text-dark-400">Loading details...</div>
+                              ) : mfgDetail?.data?.items?.length ? (
+                                <table className="w-full">
+                                  <thead className="bg-dark-900/50">
+                                    <tr>
+                                      <th className="pl-12">SQ Code</th>
+                                      <th>Material</th>
+                                      <th>Units/Pkt</th>
+                                      <th>Available Pkt</th>
+                                      <th>Blocked Pkt</th>
+                                      <th>Available Loose</th>
+                                      <th>Blocked Loose</th>
+                                      <th>Total Pkt</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {mfgDetail.data.items.map((detail) => (
+                                      <tr key={detail.materialId} className="text-sm">
+                                        <td className="pl-12 text-dark-400">{detail.sqCode || '-'}</td>
+                                        <td>{detail.materialName}</td>
+                                        <td className="text-dark-400">{detail.unitsPerPacket}</td>
+                                        <td className="text-green-400">{detail.availablePackets}</td>
+                                        <td className="text-yellow-400">{detail.blockedPackets}</td>
+                                        <td className="text-green-400">{detail.availableLooseUnits}</td>
+                                        <td className="text-yellow-400">{detail.blockedLooseUnits}</td>
+                                        <td>{detail.totalPackets}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              ) : (
+                                <div className="p-4 text-center text-dark-400">No inventory items</div>
+                              )}
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
                     ))}
                   </tbody>
                 </table>
@@ -152,25 +288,25 @@ export default function AdminInventory() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <StatCard
               title="Retailers"
-              value={retailers?.data?.length || 0}
+              value={retailerItems.length}
               icon={Store}
             />
             <StatCard
-              title="Total Materials"
-              value={new Set(retailerItems.map(i => i.materialId)).size}
+              title="Materials Held"
+              value={retailerTotalMaterials}
               icon={Package}
             />
             <StatCard
-              title="Full Packets"
+              title="Total Packets"
               value={retailerTotalPackets}
-              subtitle="Unopened"
-              icon={Package}
+              subtitle="Across all retailers"
+              icon={Warehouse}
             />
             <StatCard
-              title="Loose Units"
+              title="Total Loose Units"
               value={retailerTotalLoose}
-              subtitle="From opened packets"
-              icon={Warehouse}
+              subtitle="Across all retailers"
+              icon={Package}
             />
           </div>
 
@@ -178,9 +314,9 @@ export default function AdminInventory() {
           {retailerItems.length === 0 ? (
             <Card>
               <EmptyState
-                icon={Warehouse}
+                icon={Store}
                 title="No Retailer Inventory"
-                description="Retailers receive inventory when they confirm GRNs."
+                description="Retailers will have inventory once they confirm GRN deliveries."
               />
             </Card>
           ) : (
@@ -190,22 +326,18 @@ export default function AdminInventory() {
                   <thead className="bg-dark-800">
                     <tr>
                       <th>Retailer</th>
-                      <th>Material</th>
-                      <th>Full Packets</th>
+                      <th>Materials</th>
+                      <th>Total Packets</th>
                       <th>Loose Units</th>
-                      <th>Total Units</th>
-                      <th>Last Updated</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-dark-700">
                     {retailerItems.map((item) => (
-                      <tr key={item.id} className="hover:bg-dark-800/50">
-                        <td className="font-medium text-white">{item.retailerName || 'Unknown'}</td>
-                        <td>{item.materialName}</td>
-                        <td className="text-green-400">{item.fullPackets} pkt</td>
-                        <td className="text-yellow-400">{item.looseUnits} units</td>
-                        <td className="text-white font-medium">{item.totalUnits} units</td>
-                        <td className="text-dark-400">{new Date(item.updatedAt).toLocaleString()}</td>
+                      <tr key={item.retailerId} className="hover:bg-dark-800/50">
+                        <td className="font-medium text-white">{item.retailerName}</td>
+                        <td>{item.totalMaterials}</td>
+                        <td className="text-green-400">{item.totalPackets}</td>
+                        <td className="text-dark-300">{item.totalLooseUnits}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -215,31 +347,6 @@ export default function AdminInventory() {
           )}
         </>
       )}
-
-      {/* Info Card */}
-      <div className="mt-6">
-        <Card>
-          <h3 className="text-lg font-semibold text-white mb-3">Inventory Flow</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <h4 className="font-medium text-primary-500 mb-2">Manufacturer Flow</h4>
-              <div className="space-y-2 text-sm text-dark-300">
-                <p><span className="text-green-400">+</span> <strong>Production:</strong> Adds to available</p>
-                <p><span className="text-yellow-400">⟳</span> <strong>SRN Approval:</strong> Available → Blocked</p>
-                <p><span className="text-red-400">−</span> <strong>Dispatch:</strong> Removes blocked</p>
-              </div>
-            </div>
-            <div>
-              <h4 className="font-medium text-primary-500 mb-2">Retailer Flow</h4>
-              <div className="space-y-2 text-sm text-dark-300">
-                <p><span className="text-green-400">+</span> <strong>GRN Confirm:</strong> Adds packets</p>
-                <p><span className="text-yellow-400">⟳</span> <strong>Sale:</strong> Opens packets → loose units</p>
-                <p><span className="text-red-400">−</span> <strong>Sale:</strong> Deducts units</p>
-              </div>
-            </div>
-          </div>
-        </Card>
-      </div>
     </Layout>
   );
 }
