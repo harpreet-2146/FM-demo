@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Layout, PageHeader, LoadingSpinner, Card, Modal, EmptyState, StatCard } from '../../components/Layout';
 import { saleApi, retailerInventoryApi } from '../../services/api';
-import type { CreateSaleDto } from '../../types';
+import type { CreateSaleDto, RetailerInventoryItem } from '../../types';
 import { ShoppingCart, Plus, DollarSign, Package } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -173,7 +173,7 @@ function CreateSaleModal({
 }: {
   isOpen: boolean;
   onClose: () => void;
-  inventory: { materialId: string; materialName: string; totalUnits: number; fullPackets: number; looseUnits: number; unitsPerPacket: number }[];
+  inventory: RetailerInventoryItem[];
   onCreate: (data: CreateSaleDto) => void;
   isLoading: boolean;
 }) {
@@ -203,6 +203,14 @@ function CreateSaleModal({
 
     onCreate({ materialId, unitsSold: units });
   };
+
+  // Reset form when modal closes
+  React.useEffect(() => {
+    if (!isOpen) {
+      setMaterialId('');
+      setUnitsSold('');
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
