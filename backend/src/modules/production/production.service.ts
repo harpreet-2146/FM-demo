@@ -52,7 +52,8 @@ export class ProductionService {
     if (dto.materialId) {
       materialId = dto.materialId;
     } else {
-      materialId = await this.materialsService.resolveMaterialId(dto.sqCode!);
+    const material = await this.materialsService.findBySqCode(dto.sqCode!);
+materialId = material.id;
     }
 
     // Get material
