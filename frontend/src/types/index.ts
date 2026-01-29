@@ -440,7 +440,7 @@ export interface CreateReturnDto {
 }
 
 export interface ResolveReturnDto {
-  status: 'APPROVED_RESTOCK' | 'APPROVED_REPLACE' | 'REJECTED';
+  resolution: 'APPROVED_RESTOCK' | 'APPROVED_REPLACE' | 'REJECTED';
   resolutionNotes?: string;
 }
 
