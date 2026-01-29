@@ -102,7 +102,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       >
         <div className="flex flex-col h-full">
           <div className="p-6 border-b border-dark-700">
-            <h1 className="text-xl font-bold text-primary-500">FoodMfg SaaS</h1>
+            <h1 className="text-xl font-bold text-primary-500">LIFECYCLE</h1>
             <p className="text-xs text-dark-400 mt-1">{user?.role} Portal</p>
           </div>
 
@@ -134,7 +134,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <div className="p-4 border-t border-dark-700">
             <div className="mb-4">
               <p className="font-medium text-white">{user?.name}</p>
-              <p className="text-sm text-dark-400">{user?.email}</p>
+              <p className="text-medium text-dark-400">{user?.email}</p>
             </div>
             <button
               onClick={handleLogout}
@@ -171,7 +171,7 @@ export function PageHeader({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+    <div className="flex flex-col medium:flex-row medium:items-center medium:justify-between gap-4 mb-8">
       <div>
         <h1 className="text-2xl font-bold text-white">{title}</h1>
         {subtitle && <p className="text-dark-400 mt-1">{subtitle}</p>}
@@ -181,8 +181,8 @@ export function PageHeader({
   );
 }
 
-export function LoadingSpinner({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
-  const sizeClasses = { sm: 'w-4 h-4', md: 'w-8 h-8', lg: 'w-12 h-12' };
+export function LoadingSpinner({ size = 'md' }: { size?: 'medium' | 'md' | 'lg' }) {
+  const sizeClasses = { medium: 'w-4 h-4', md: 'w-8 h-8', lg: 'w-12 h-12' };
   return (
     <div className="flex justify-center items-center p-8">
       <div className={`${sizeClasses[size]} border-2 border-dark-600 border-t-primary-500 rounded-full animate-spin`} />
@@ -243,7 +243,7 @@ export function StatCard({ title, value, subtitle, icon: Icon }: { title: string
     <Card>
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-dark-400 text-sm">{title}</p>
+          <p className="text-dark-400 text-medium">{title}</p>
           <p className="text-2xl font-bold text-white mt-1">{value}</p>
           {subtitle && <p className="text-dark-500 text-xs mt-1">{subtitle}</p>}
         </div>
