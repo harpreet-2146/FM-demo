@@ -2,8 +2,8 @@ import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Shield, Factory, Store, ArrowRight } from 'lucide-react';
-//import bgImage from '../assets/landing.webp';
-import bgImage from "../assets/bg.webp";
+import bgImage from '../assets/bg.webp';
+
 export default function Landing() {
   const navigate = useNavigate();
   const { user, isBootstrapped, isLoading } = useAuth();
@@ -20,50 +20,97 @@ export default function Landing() {
         case 'RETAILER':
           navigate('/retailer/dashboard');
           break;
+        default:
+          break;
       }
     }
   }, [user, navigate]);
 
+  /* -------------------- LOADING -------------------- */
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-black">
+      <div className="w-screen h-screen flex items-center justify-center bg-black">
         <div className="w-12 h-12 border-2 border-white/30 border-t-white rounded-full animate-spin" />
       </div>
     );
   }
 
+  /* -------------------- BOOTSTRAP REQUIRED -------------------- */
   if (isBootstrapped === false) {
     return (
-      <div
-  className="min-h-screen bg-center bg-no-repeat flex items-center justify-center"
-  style={{
-    backgroundImage: `url(${bgImage})`,
-  }}
->
+      <div className="w-screen h-screen relative overflow-hidden">
+        {/* Background */}
+        <div
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+          style={{ backgroundImage: `url(${bgImage})` }}
+        />
 
-        <div className="text-center max-w-lg px-6">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary-600 mb-6">
-            <Shield size={32} className="text-white" />
-          </div>
-          <h1 className="text-3xl font-semibold text-white mb-4">
-            System Initialization Required
-          </h1>
-          <p className="text-slate-300 mb-8 leading-relaxed">
-            This system has not been initialized yet.
-            Create the first administrator account to begin configuration.
-          </p>
-          <button
-            onClick={() => navigate('/bootstrap')}
-            className="inline-flex items-center gap-2 text-primary-400 font-medium hover:underline"
-          >
-            Initialize System
-            <ArrowRight size={18} />
-          </button>
-        </div>
-      </div>
+        {/* Dark overlay */}
+        <div className="absolute inset-0 bg-black/20" />
+
+        {/* Content */}
+        <div className="relative z-10 h-full flex items-center justify-center px-6">
+  <div className="text-center max-w-xl">
+
+    {/* Icon */}
+    <div className="mx-auto mb-8 w-20 h-20 rounded-full
+                    bg-gradient-to-br from-primary-500 to-primary-700
+                    flex items-center justify-center
+                    shadow-[0_0_40px_rgba(99,102,241,0.45)]">
+      <Shield size={36} className="text-white" />
+    </div>
+
+    {/* Title */}
+    <h1 className="
+      text-4xl md:text-5xl font-semibold tracking-tight
+      text-white mb-4
+    ">
+      System Initialization Required
+    </h1>
+
+    {/* Subtitle */}
+    <p className="
+      text-lg md:text-xl
+      text-slate-300/90
+      leading-relaxed
+      mb-10
+    ">
+      This environment has not been configured yet.
+      Initialize the system by creating the first administrator account.
+    </p>
+
+    {/* CTA */}
+    <button
+      onClick={() => navigate('/bootstrap')}
+      className="
+        group inline-flex items-center gap-3
+        px-8 py-4 rounded-full
+        text-base font-semibold tracking-wide
+        text-white
+        bg-gradient-to-r from-primary-500 to-primary-700
+        shadow-[0_10px_30px_rgba(99,102,241,0.35)]
+        hover:shadow-[0_14px_45px_rgba(99,102,241,0.55)]
+        transition-all duration-300
+      "
+    >
+      Initialize System
+      <ArrowRight
+        size={18}
+        className="transition-transform duration-300 group-hover:translate-x-1"
+      />
+    </button>
+
+    {/* Subtle hint */}
+    <p className="mt-6 text-sm text-slate-400">
+      This action can only be performed once.
+    </p>
+  </div>
+</div>
+</div>
     );
   }
 
+  /* -------------------- MAIN LANDING -------------------- */
   const roles = [
     {
       id: 'admin',
@@ -107,66 +154,41 @@ export default function Landing() {
   ];
 
   return (
-    <div
-      className="min-h-screen bg-cover bg-center bg-no-repeat text-white"
-      style={{ backgroundImage: `url(${bgImage})` }}
-    >
-      
-      {/* Hero */}
-      <section className="relative px-4 pt-36 pb-24 overflow-hidden">
-  <div className="max-w-4xl mx-auto">
+    <div className="w-screen min-h-screen relative overflow-hidden text-white">
+      {/* Background */}
+      <div
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+        style={{ backgroundImage: `url(${bgImage})` }}
+      />
 
-    {/* ORCHESTRA */}
-    <h1
-      className="
-        text-6xl md:text-7xl font-extrabold tracking-[0.18em]
-        text-white mb-6
-        opacity-0 animate-[fadeUp_0.9s_ease-out_forwards]
-      "
-      style={{
-        textShadow: "0 12px 32px rgba(0,0,0,0.65)",
-      }}
-    >
-      LIFECYCLE
-    </h1>
+      {/* Overlay */}
+      <div className="absolute inset-0 bg-black/55" />
 
-    {/* Tagline */}
-    <h2
-      className="
-        text-3xl md:text-3xl font-medium italic
-        bg-gradient-to-r from-gray-100 via-white to-gray-700
-        bg-clip-text text-transparent
-        opacity-0 animate-[fadeUp_0.9s_ease-out_0.2s_forwards]
-      "
-      style={{
-        textShadow: "0 6px 20px rgba(0,0,0,0.55)",
-      }}
-    >
-      Control the Entire Food Manufacturing Lifecycle
-    </h2>
+      {/* Content */}
+      <div className="relative z-10">
 
-    {/* Inline keyframes */}
-    <style jsx>{`
-      @keyframes fadeUp {
-        from {
-          opacity: 0;
-          transform: translateY(24px);
-        }
-        to {
-          opacity: 1;
-          transform: translateY(0);
-        }
-      }
-    `}</style>
+        {/* Hero */}
+        <section className="px-6 pt-36 pb-24">
+          <div className="max-w-4xl mx-auto">
+            <h1
+              className="text-6xl md:text-7xl font-extrabold tracking-[0.18em] mb-6"
+              style={{ textShadow: '0 12px 32px rgba(0,0,0,0.65)' }}
+            >
+              LIFECYCLE
+            </h1>
 
-  </div>
-</section>
+            <h2
+              className="text-3xl font-medium italic bg-gradient-to-r from-gray-100 via-white to-gray-700 bg-clip-text text-transparent"
+              style={{ textShadow: '0 6px 20px rgba(0,0,0,0.55)' }}
+            >
+              Control the Entire Food Manufacturing Lifecycle
+            </h2>
+          </div>
+        </section>
 
-
-            {/* Role Selection */}
-      <section className="px-4 pb-24">
-        <div className="max-w-6xl mx-auto">
-          <div className="grid lg:grid-cols-3 gap-12">
+        {/* Roles */}
+        <section className="px-6 pb-24">
+          <div className="max-w-6xl mx-auto grid lg:grid-cols-3 gap-12">
             {roles.map((role) => {
               const Icon = role.icon;
               return (
@@ -182,14 +204,14 @@ export default function Landing() {
                     <h4 className="text-3xl font-bold mb-2">
                       {role.title}
                     </h4>
-                    <p className="text-medium text-slate-100 mb-4 leading-relaxed">
+                    <p className="text-slate-100 mb-4 leading-relaxed">
                       {role.description}
                     </p>
 
-                    <ul className="space-y-2 text-medium text-slate-300">
+                    <ul className="space-y-2 text-slate-300">
                       {role.features.map((f, i) => (
-                        <li key={i} className="flex items-start gap-2">
-                          <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary-400" />
+                        <li key={i} className="flex gap-2">
+                          <span className="mt-2 h-1.5 w-1.5 rounded-full bg-primary-400" />
                           {f}
                         </li>
                       ))}
@@ -207,9 +229,8 @@ export default function Landing() {
               );
             })}
           </div>
-        </div>
-      </section>
+        </section>
+      </div>
     </div>
   );
 }
-
