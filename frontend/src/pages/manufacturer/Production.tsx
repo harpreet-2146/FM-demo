@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Layout, PageHeader, LoadingSpinner, Card, Modal, EmptyState, StatCard } from '../../components/Layout';
 import { productionApi, materialsApi } from '../../services/api';
-import type { CreateProductionBatchDto } from '../../types';
-import { Factory, Plus, Package, Calendar } from 'lucide-react';
+import type { ProductionBatch, CreateProductionBatchDto, Material } from '../../types';
+import { Factory, Plus, Package, Barcode } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function ManufacturerProduction() {
@@ -15,11 +15,6 @@ export default function ManufacturerProduction() {
     queryFn: () => productionApi.getSummary(),
   });
 
-  const { data: batches } = useQuery({
-    queryKey: ['production-batches'],
-    queryFn: () => productionApi.getBatches(),
-  });
-
   const { data: materials } = useQuery({
     queryKey: ['materials'],
     queryFn: () => materialsApi.getAll(),
@@ -29,34 +24,32 @@ export default function ManufacturerProduction() {
     mutationFn: productionApi.createBatch,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['production-summary'] });
-      queryClient.invalidateQueries({ queryKey: ['production-batches'] });
       queryClient.invalidateQueries({ queryKey: ['manufacturer-inventory'] });
       setIsModalOpen(false);
-      toast.success('Production batch recorded');
+      toast.success('Production batch recorded - inventory updated');
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to record batch');
+      toast.error(error.response?.data?.message || 'Failed to record production');
     },
   });
 
   if (isLoading) return <Layout><LoadingSpinner /></Layout>;
 
   const summaryData = summary?.data;
-  const batchList = batches?.data || [];
-  const materialList = materials?.data || [];
+  const materialList = materials?.data?.filter(m => m.isActive) || [];
 
   return (
     <Layout>
       <PageHeader
         title="Production"
-        subtitle="Record production batches to add inventory"
+        subtitle="Record production batches to add packets and loose units to inventory"
         action={
           <button
             onClick={() => setIsModalOpen(true)}
             className="btn btn-primary flex items-center gap-2"
           >
             <Plus size={20} />
-            New Batch
+            Record Batch
           </button>
         }
       />
@@ -69,66 +62,84 @@ export default function ManufacturerProduction() {
           icon={Factory}
         />
         <StatCard
-          title="Total Packets Produced"
+          title="Packets Produced"
           value={summaryData?.totalPacketsProduced || 0}
           icon={Package}
         />
         <StatCard
-          title="Active Materials"
-          value={materialList.length}
-          icon={Calendar}
+          title="Loose Units Produced"
+          value={summaryData?.totalLooseUnitsProduced || 0}
+          subtitle="Not in packets"
+          icon={Package}
         />
       </div>
 
-      {/* Batch List */}
-      {batchList.length === 0 ? (
-        <Card>
-          <EmptyState
-            icon={Factory}
-            title="No Production Batches"
-            description="Record your first production batch to start tracking inventory."
-            action={
-              <button
-                onClick={() => setIsModalOpen(true)}
-                className="btn btn-primary"
-              >
-                Record First Batch
-              </button>
-            }
-          />
-        </Card>
-      ) : (
+      {/* Recent Batches */}
+      {summaryData?.recentBatches && summaryData.recentBatches.length > 0 ? (
         <Card className="overflow-hidden p-0">
+          <div className="p-4 border-b border-dark-700">
+            <h3 className="font-semibold text-white">Recent Production Batches</h3>
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-dark-800">
                 <tr>
-                  <th>Batch Number</th>
+                  <th>Batch #</th>
                   <th>Material</th>
+                  <th>SQ Code</th>
                   <th>Packets</th>
-                  <th>Manufacture Date</th>
-                  <th>Expiry Date</th>
-                  <th>HSN Snapshot</th>
+                  <th>Loose Units</th>
+                  <th>Mfg Date</th>
+                  <th>Expiry</th>
                   <th>Recorded</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-dark-700">
-                {batchList.map((batch) => (
+                {summaryData.recentBatches.map((batch) => (
                   <tr key={batch.id} className="hover:bg-dark-800/50">
                     <td className="font-medium text-white">{batch.batchNumber}</td>
                     <td>{batch.materialName}</td>
-                    <td className="text-primary-500">{batch.packetsProduced}</td>
+                    <td>
+                      <span className="font-mono text-sm text-primary-400">{batch.sqCode || '-'}</span>
+                    </td>
+                    <td>{batch.packetsProduced}</td>
+                    <td>{batch.looseUnitsProduced || 0}</td>
                     <td>{new Date(batch.manufactureDate).toLocaleDateString()}</td>
                     <td>{new Date(batch.expiryDate).toLocaleDateString()}</td>
-                    <td className="text-dark-400">{batch.hsnCodeSnapshot}</td>
-                    <td className="text-dark-400">{new Date(batch.createdAt).toLocaleString()}</td>
+                    <td>{new Date(batch.createdAt).toLocaleString()}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         </Card>
+      ) : (
+        <Card>
+          <EmptyState
+            icon={Factory}
+            title="No Production Batches"
+            description="Record your first production batch to add inventory."
+            action={
+              <button onClick={() => setIsModalOpen(true)} className="btn btn-primary">
+                Record First Batch
+              </button>
+            }
+          />
+        </Card>
       )}
+
+      {/* Info Card */}
+      <div className="mt-6">
+        <Card>
+          <h3 className="text-lg font-semibold text-white mb-3">Production Notes</h3>
+          <div className="space-y-2 text-sm text-dark-300">
+            <p>• <strong>Packets:</strong> Full sealed packets added to inventory</p>
+            <p>• <strong>Loose Units:</strong> Individual units not in a packet (e.g., from broken packets)</p>
+            <p>• <strong>SQ Code:</strong> You can enter material by SQ Code instead of selecting from dropdown</p>
+            <p>• Recording a batch automatically adds to your available inventory</p>
+          </div>
+        </Card>
+      </div>
 
       {/* Create Batch Modal */}
       <CreateBatchModal
@@ -151,80 +162,174 @@ function CreateBatchModal({
 }: {
   isOpen: boolean;
   onClose: () => void;
-  materials: { id: string; name: string; hsnCode: string }[];
+  materials: Material[];
   onCreate: (data: CreateProductionBatchDto) => void;
   isLoading: boolean;
 }) {
-  const today = new Date().toISOString().split('T')[0];
-  const oneYearLater = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  const [useSqCode, setUseSqCode] = useState(false);
+  const [materialId, setMaterialId] = useState('');
+  const [sqCode, setSqCode] = useState('');
+  const [batchNumber, setBatchNumber] = useState('');
+  const [manufactureDate, setManufactureDate] = useState('');
+  const [expiryDate, setExpiryDate] = useState('');
+  const [packetsProduced, setPacketsProduced] = useState('');
+  const [looseUnitsProduced, setLooseUnitsProduced] = useState('');
 
-  const [formData, setFormData] = useState({
-    materialId: '',
-    batchNumber: '',
-    manufactureDate: today,
-    expiryDate: oneYearLater,
-    packetsProduced: '',
-  });
+  const selectedMaterial = useSqCode 
+    ? materials.find(m => m.sqCode.toLowerCase() === sqCode.toLowerCase())
+    : materials.find(m => m.id === materialId);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.materialId || !formData.batchNumber || !formData.packetsProduced) {
-      toast.error('All fields are required');
+    if (!batchNumber || !manufactureDate || !expiryDate) {
+      toast.error('All required fields must be filled');
       return;
     }
 
-    const packets = parseInt(formData.packetsProduced);
-    if (packets <= 0) {
-      toast.error('Packets must be positive');
+    const packets = parseInt(packetsProduced) || 0;
+    const loose = parseInt(looseUnitsProduced) || 0;
+
+    if (packets === 0 && loose === 0) {
+      toast.error('Must produce at least some packets or loose units');
       return;
     }
 
-    onCreate({
-      materialId: formData.materialId,
-      batchNumber: formData.batchNumber,
-      manufactureDate: formData.manufactureDate,
-      expiryDate: formData.expiryDate,
-      packetsProduced: packets,
-    });
+    if (useSqCode) {
+      if (!sqCode) {
+        toast.error('Enter SQ Code');
+        return;
+      }
+      onCreate({
+        sqCode,
+        batchNumber,
+        manufactureDate,
+        expiryDate,
+        packetsProduced: packets,
+        looseUnitsProduced: loose || undefined,
+      });
+    } else {
+      if (!materialId) {
+        toast.error('Select a material');
+        return;
+      }
+      onCreate({
+        materialId,
+        batchNumber,
+        manufactureDate,
+        expiryDate,
+        packetsProduced: packets,
+        looseUnitsProduced: loose || undefined,
+      });
+    }
   };
 
-  const selectedMaterial = materials.find(m => m.id === formData.materialId);
+  // Generate default batch number
+  React.useEffect(() => {
+    if (isOpen && !batchNumber) {
+      const today = new Date();
+      const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
+      setBatchNumber(`BATCH-${dateStr}-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`);
+      setManufactureDate(today.toISOString().slice(0, 10));
+    }
+  }, [isOpen]);
+
+  // Reset form when modal closes
+  React.useEffect(() => {
+    if (!isOpen) {
+      setUseSqCode(false);
+      setMaterialId('');
+      setSqCode('');
+      setBatchNumber('');
+      setManufactureDate('');
+      setExpiryDate('');
+      setPacketsProduced('');
+      setLooseUnitsProduced('');
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Record Production Batch">
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="form-label">Material *</label>
-          <select
-            className="form-input"
-            value={formData.materialId}
-            onChange={(e) => setFormData({ ...formData, materialId: e.target.value })}
-            required
-          >
-            <option value="">Select material...</option>
-            {materials.map((m) => (
-              <option key={m.id} value={m.id}>{m.name}</option>
-            ))}
-          </select>
-          {selectedMaterial && (
-            <p className="text-xs text-dark-400 mt-1">HSN: {selectedMaterial.hsnCode}</p>
-          )}
+        {/* Material Selection Method Toggle */}
+        <div className="flex gap-4 p-3 bg-dark-800 rounded-lg">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="radio"
+              checked={!useSqCode}
+              onChange={() => setUseSqCode(false)}
+              className="form-radio"
+            />
+            <span className="text-sm">Select Material</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="radio"
+              checked={useSqCode}
+              onChange={() => setUseSqCode(true)}
+              className="form-radio"
+            />
+            <span className="text-sm flex items-center gap-1">
+              <Barcode size={14} /> Enter SQ Code
+            </span>
+          </label>
         </div>
 
+        {/* Material Selection */}
+        {useSqCode ? (
+          <div>
+            <label className="form-label">SQ Code *</label>
+            <input
+              type="text"
+              className="form-input font-mono"
+              placeholder="e.g., WF-001"
+              value={sqCode}
+              onChange={(e) => setSqCode(e.target.value.toUpperCase())}
+              required
+            />
+            {sqCode && selectedMaterial && (
+              <p className="text-sm text-green-400 mt-1">
+                ✓ Found: {selectedMaterial.name}
+              </p>
+            )}
+            {sqCode && !selectedMaterial && sqCode.length >= 3 && (
+              <p className="text-sm text-yellow-400 mt-1">
+                Material not found - will be validated on server
+              </p>
+            )}
+          </div>
+        ) : (
+          <div>
+            <label className="form-label">Material *</label>
+            <select
+              className="form-input"
+              value={materialId}
+              onChange={(e) => setMaterialId(e.target.value)}
+              required
+            >
+              <option value="">Select material...</option>
+              {materials.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name} ({m.sqCode})
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* Batch Details */}
         <div>
           <label className="form-label">Batch Number *</label>
           <input
             type="text"
             className="form-input"
-            placeholder="e.g., BATCH-2024-001"
-            value={formData.batchNumber}
-            onChange={(e) => setFormData({ ...formData, batchNumber: e.target.value })}
+            value={batchNumber}
+            onChange={(e) => setBatchNumber(e.target.value)}
+            placeholder="e.g., BATCH-20260129-001"
             required
           />
-          <p className="text-xs text-dark-400 mt-1">Must be unique for your account</p>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
@@ -233,8 +338,8 @@ function CreateBatchModal({
             <input
               type="date"
               className="form-input"
-              value={formData.manufactureDate}
-              onChange={(e) => setFormData({ ...formData, manufactureDate: e.target.value })}
+              value={manufactureDate}
+              onChange={(e) => setManufactureDate(e.target.value)}
               required
             />
           </div>
@@ -243,32 +348,46 @@ function CreateBatchModal({
             <input
               type="date"
               className="form-input"
-              value={formData.expiryDate}
-              onChange={(e) => setFormData({ ...formData, expiryDate: e.target.value })}
-              min={formData.manufactureDate}
+              value={expiryDate}
+              onChange={(e) => setExpiryDate(e.target.value)}
+              min={manufactureDate}
               required
             />
           </div>
         </div>
 
-        <div>
-          <label className="form-label">Packets Produced *</label>
-          <input
-            type="number"
-            min="1"
-            className="form-input"
-            placeholder="e.g., 100"
-            value={formData.packetsProduced}
-            onChange={(e) => setFormData({ ...formData, packetsProduced: e.target.value })}
-            required
-          />
-        </div>
-
-        <div className="bg-yellow-900/20 border border-yellow-800 rounded-lg p-3">
-          <p className="text-sm text-yellow-400">
-            <strong>Note:</strong> This will add {formData.packetsProduced || 0} packets to your available inventory.
-            {selectedMaterial && ' HSN code will be snapshotted at current value.'}
-          </p>
+        {/* Quantities */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="form-label">Packets Produced</label>
+            <input
+              type="number"
+              min="0"
+              className="form-input"
+              placeholder="e.g., 100"
+              value={packetsProduced}
+              onChange={(e) => setPacketsProduced(e.target.value)}
+            />
+            {selectedMaterial && (
+              <p className="text-xs text-dark-400 mt-1">
+                = {(parseInt(packetsProduced) || 0) * selectedMaterial.unitsPerPacket} units
+              </p>
+            )}
+          </div>
+          <div>
+            <label className="form-label">Loose Units</label>
+            <input
+              type="number"
+              min="0"
+              className="form-input"
+              placeholder="e.g., 0"
+              value={looseUnitsProduced}
+              onChange={(e) => setLooseUnitsProduced(e.target.value)}
+            />
+            <p className="text-xs text-dark-400 mt-1">
+              Not in packets
+            </p>
+          </div>
         </div>
 
         <div className="flex gap-3 pt-4">
