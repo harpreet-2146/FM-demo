@@ -9,14 +9,16 @@ import Landing from './pages/Landing';
 import Bootstrap from './pages/Bootstrap';
 import Login from './pages/Login';
 
-// Admin pages
+// Admin pages - eager load dashboard and materials
 import AdminDashboard from './pages/admin/Dashboard';
 import AdminMaterials from './pages/admin/Materials';
 
 // Lazy load other pages to reduce bundle size
+const AdminAssignments = React.lazy(() => import('./pages/admin/Assignments'));  // NEW
 const AdminInventory = React.lazy(() => import('./pages/admin/Inventory'));
 const AdminRequests = React.lazy(() => import('./pages/admin/Requests'));
 const AdminDispatch = React.lazy(() => import('./pages/admin/Dispatch'));
+const AdminReturns = React.lazy(() => import('./pages/admin/Returns'));  // NEW
 const AdminInvoices = React.lazy(() => import('./pages/admin/Invoices'));
 const AdminCommission = React.lazy(() => import('./pages/admin/Commission'));
 const AdminUsers = React.lazy(() => import('./pages/admin/Users'));
@@ -30,6 +32,7 @@ const RetailerDashboard = React.lazy(() => import('./pages/retailer/Dashboard'))
 const RetailerCatalog = React.lazy(() => import('./pages/retailer/Catalog'));
 const RetailerRequests = React.lazy(() => import('./pages/retailer/Requests'));
 const RetailerReceiving = React.lazy(() => import('./pages/retailer/Receiving'));
+const RetailerReturns = React.lazy(() => import('./pages/retailer/Returns'));  // NEW
 const RetailerSales = React.lazy(() => import('./pages/retailer/Sales'));
 const RetailerInvoices = React.lazy(() => import('./pages/retailer/Invoices'));
 
@@ -100,6 +103,9 @@ function AppRoutes() {
         <Route path="/admin/materials" element={
           <ProtectedRoute allowedRoles={['ADMIN']}><AdminMaterials /></ProtectedRoute>
         } />
+        <Route path="/admin/assignments" element={
+          <ProtectedRoute allowedRoles={['ADMIN']}><AdminAssignments /></ProtectedRoute>
+        } />
         <Route path="/admin/inventory" element={
           <ProtectedRoute allowedRoles={['ADMIN']}><AdminInventory /></ProtectedRoute>
         } />
@@ -108,6 +114,9 @@ function AppRoutes() {
         } />
         <Route path="/admin/dispatch" element={
           <ProtectedRoute allowedRoles={['ADMIN']}><AdminDispatch /></ProtectedRoute>
+        } />
+        <Route path="/admin/returns" element={
+          <ProtectedRoute allowedRoles={['ADMIN']}><AdminReturns /></ProtectedRoute>
         } />
         <Route path="/admin/invoices" element={
           <ProtectedRoute allowedRoles={['ADMIN']}><AdminInvoices /></ProtectedRoute>
@@ -145,6 +154,9 @@ function AppRoutes() {
         } />
         <Route path="/retailer/receiving" element={
           <ProtectedRoute allowedRoles={['RETAILER']}><RetailerReceiving /></ProtectedRoute>
+        } />
+        <Route path="/retailer/returns" element={
+          <ProtectedRoute allowedRoles={['RETAILER']}><RetailerReturns /></ProtectedRoute>
         } />
         <Route path="/retailer/sales" element={
           <ProtectedRoute allowedRoles={['RETAILER']}><RetailerSales /></ProtectedRoute>
