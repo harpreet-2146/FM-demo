@@ -116,13 +116,14 @@ export const productionApi = {
 
 // Manufacturer Inventory API
 export const manufacturerInventoryApi = {
+  // Manufacturer: get my inventory - endpoint is /manufacturer/inventory
   getMyInventory: () =>
-    api.get<ManufacturerInventorySummary>('/inventory/manufacturer/my'),
-  // Admin: get all manufacturer inventories
+    api.get<ManufacturerInventorySummary>('/manufacturer/inventory'),
+  // Admin: get all manufacturer inventories via reports
   getAll: () =>
-    api.get<ManufacturerInventoryItem[]>('/inventory/manufacturer'),
+    api.get<ManufacturerInventoryItem[]>('/admin/reports/inventory/by-manufacturer'),
   getByManufacturer: (manufacturerId: string) =>
-    api.get<ManufacturerInventorySummary>(`/inventory/manufacturer/${manufacturerId}`),
+    api.get<ManufacturerInventorySummary>(`/admin/reports/inventory/manufacturer/${manufacturerId}`),
 };
 
 // Retailer Inventory API
@@ -130,11 +131,11 @@ export const retailerInventoryApi = {
   // Retailer: get my inventory - endpoint is /retailer/inventory
   getMyInventory: () =>
     api.get<RetailerInventorySummary>('/retailer/inventory'),
-  // Admin: get all retailer inventories
+  // Admin: get all retailer inventories via reports
   getAll: () =>
-    api.get<RetailerInventoryItem[]>('/inventory/retailer'),
+    api.get<RetailerInventoryItem[]>('/admin/reports/inventory/retailers'),
   getByRetailer: (retailerId: string) =>
-    api.get<RetailerInventorySummary>(`/inventory/retailer/${retailerId}`),
+    api.get<RetailerInventorySummary>(`/admin/reports/inventory/retailer/${retailerId}`),
 };
 
 // SRN API - UPDATED: manufacturerId now required in create
