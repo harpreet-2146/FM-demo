@@ -22,6 +22,18 @@ import type {
   SaleSummary,
   Commission,
   CommissionSummary,
+  ManufacturerInventoryItem,
+  RetailerInventoryItem,
+  // NEW types
+  Assignment,
+  CreateAssignmentDto,
+  AssignedManufacturer,
+  Return,
+  CreateReturnDto,
+  ResolveReturnDto,
+  Notification,
+  NotificationCount,
+  InventoryAggregateReport,
 } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
@@ -68,8 +80,8 @@ export const authApi = {
 export const usersApi = {
   getAll: (filters?: { role?: string; isActive?: boolean }) =>
     api.get<User[]>('/users', { params: filters }),
-  getManufacturers: () => api.get<User[]>('/users/manufacturers'),
-  getRetailers: () => api.get<User[]>('/users/retailers'),
+  getManufacturers: () => api.get<User[]>('/users', { params: { role: 'MANUFACTURER' } }),
+  getRetailers: () => api.get<User[]>('/users', { params: { role: 'RETAILER' } }),
   getOne: (id: string) => api.get<User>(`/users/${id}`),
   create: (data: { email: string; password: string; name: string; role: string }) =>
     api.post<User>('/users', data),
@@ -80,23 +92,24 @@ export const usersApi = {
   delete: (id: string) => api.delete(`/users/${id}`),
 };
 
-// Materials API
+// Materials API - UPDATED: Added sqCode lookup
 export const materialsApi = {
   getAll: (includeInactive?: boolean) =>
     api.get<Material[]>('/materials', { params: { includeInactive } }),
   getOne: (id: string) => api.get<Material>(`/materials/${id}`),
+  getBySqCode: (sqCode: string) => api.get<Material>(`/materials/by-sqcode/${sqCode}`),  // NEW
   create: (data: CreateMaterialDto) => api.post<Material>('/materials', data),
   update: (id: string, data: Partial<Material>) =>
     api.patch<Material>(`/materials/${id}`, data),
   delete: (id: string) => api.delete(`/materials/${id}`),
 };
 
-// Production API
+// Production API - UPDATED: Added sqCode support
 export const productionApi = {
   createBatch: (data: CreateProductionBatchDto) =>
     api.post<ProductionBatch>('/production/batch', data),
   getSummary: () => api.get<ProductionSummary>('/production/summary'),
-  getBatches: (params?: { materialId?: string; limit?: number }) =>
+  getBatches: (params?: { materialId?: string; sqCode?: string; limit?: number }) =>  // Added sqCode
     api.get<ProductionBatch[]>('/production/batches', { params }),
   getBatch: (id: string) => api.get<ProductionBatch>(`/production/batches/${id}`),
 };
@@ -104,29 +117,46 @@ export const productionApi = {
 // Manufacturer Inventory API
 export const manufacturerInventoryApi = {
   getMyInventory: () =>
-    api.get<ManufacturerInventorySummary>('/manufacturer/inventory'),
+    api.get<ManufacturerInventorySummary>('/inventory/manufacturer/my'),
+  // Admin: get all manufacturer inventories
+  getAll: () =>
+    api.get<ManufacturerInventoryItem[]>('/inventory/manufacturer'),
+  getByManufacturer: (manufacturerId: string) =>
+    api.get<ManufacturerInventorySummary>(`/inventory/manufacturer/${manufacturerId}`),
 };
 
 // Retailer Inventory API
 export const retailerInventoryApi = {
+  // Retailer: get my inventory - endpoint is /retailer/inventory
   getMyInventory: () =>
     api.get<RetailerInventorySummary>('/retailer/inventory'),
+  // Admin: get all retailer inventories
+  getAll: () =>
+    api.get<RetailerInventoryItem[]>('/inventory/retailer'),
+  getByRetailer: (retailerId: string) =>
+    api.get<RetailerInventorySummary>(`/inventory/retailer/${retailerId}`),
 };
 
-// SRN API
+// SRN API - UPDATED: manufacturerId now required in create
 export const srnApi = {
   create: (data: CreateSRNDto) => api.post<SRN>('/srn', data),
   submit: (id: string) => api.post<SRN>(`/srn/${id}/submit`),
   process: (id: string, data: ApproveSRNDto) => api.post<SRN>(`/srn/${id}/process`, data),
+  // Retailer: get my SRNs
   getMy: (status?: string) => api.get<SRN[]>('/srn/my', { params: { status } }),
+  // Manufacturer: get SRNs assigned to me
+  getAssigned: (status?: string) => api.get<SRN[]>('/srn/assigned', { params: { status } }),
+  // Admin: get all SRNs
   getAll: (status?: string) => api.get<SRN[]>('/srn', { params: { status } }),
   getOne: (id: string) => api.get<SRN>(`/srn/${id}`),
   getPendingCount: () => api.get<{ count: number }>('/srn/pending/count'),
 };
 
-// Dispatch API
+// Dispatch API - UPDATED: Now MANUFACTURER creates and executes (was Admin)
 export const dispatchApi = {
+  // CHANGED: Manufacturer creates dispatch from approved SRN
   create: (srnId: string) => api.post<DispatchOrder>('/dispatch', { srnId }),
+  // CHANGED: Manufacturer executes dispatch
   execute: (id: string, deliveryNotes?: string) =>
     api.post<DispatchOrder>(`/dispatch/${id}/execute`, { deliveryNotes }),
   getMy: () => api.get<DispatchOrder[]>('/dispatch/my'),
@@ -134,7 +164,7 @@ export const dispatchApi = {
   getOne: (id: string) => api.get<DispatchOrder>(`/dispatch/${id}`),
 };
 
-// GRN API
+// GRN API - UPDATED: Removed damagedPackets from confirm
 export const grnApi = {
   confirm: (id: string, data: ConfirmGRNDto) => api.post<GRN>(`/grn/${id}/confirm`, data),
   getMy: (status?: string) => api.get<GRN[]>('/grn/my', { params: { status } }),
@@ -170,6 +200,110 @@ export const commissionApi = {
   markPaid: (id: string) => api.post<Commission>(`/commissions/${id}/pay`),
   markAllPaid: (retailerId: string) =>
     api.post<{ count: number }>(`/commissions/retailer/${retailerId}/pay-all`),
+};
+
+// =====================================================
+// NEW: Assignment API (Retailer-Manufacturer mapping)
+// =====================================================
+export const assignmentApi = {
+  // Admin: Create assignment
+  create: (data: CreateAssignmentDto) =>
+    api.post<Assignment>('/assignments', data),
+  
+  // Admin: Get all assignments
+  getAll: (activeOnly?: boolean) =>
+    api.get<Assignment[]>('/assignments', { params: { activeOnly } }),
+  
+  // Admin: Get assignments by retailer
+  getByRetailer: (retailerId: string) =>
+    api.get<Assignment[]>(`/assignments/retailer/${retailerId}`),
+  
+  // Admin: Get assignments by manufacturer
+  getByManufacturer: (manufacturerId: string) =>
+    api.get<Assignment[]>(`/assignments/manufacturer/${manufacturerId}`),
+  
+  // Retailer: Get my assigned manufacturers
+  getMyManufacturers: () =>
+    api.get<AssignedManufacturer[]>('/assignments/my-manufacturers'),
+  
+  // Manufacturer: Get my assigned retailers
+  getMyRetailers: () =>
+    api.get<Assignment[]>('/assignments/my-retailers'),
+  
+  // Admin: Update assignment
+  update: (id: string, data: { isActive?: boolean }) =>
+    api.patch<Assignment>(`/assignments/${id}`, data),
+  
+  // Admin: Deactivate assignment
+  deactivate: (id: string) =>
+    api.delete(`/assignments/${id}`),
+};
+
+// =====================================================
+// NEW: Return API (replaces damaged goods workflow)
+// =====================================================
+export const returnApi = {
+  // Retailer: Create return
+  create: (data: CreateReturnDto) =>
+    api.post<Return>('/returns', data),
+  
+  // Admin: Resolve return
+  resolve: (id: string, data: ResolveReturnDto) =>
+    api.post<Return>(`/returns/${id}/resolve`, data),
+  
+  // Retailer: Get my returns
+  getMy: (status?: string) =>
+    api.get<Return[]>('/returns/my', { params: { status } }),
+  
+  // Admin: Get all returns
+  getAll: (status?: string) =>
+    api.get<Return[]>('/returns', { params: { status } }),
+  
+  // Get single return
+  getOne: (id: string) =>
+    api.get<Return>(`/returns/${id}`),
+  
+  // Admin: Get pending count
+  getPendingCount: () =>
+    api.get<{ count: number }>('/returns/pending/count'),
+};
+
+// =====================================================
+// NEW: Notification API
+// =====================================================
+export const notificationApi = {
+  // Get my notifications
+  getAll: (limit?: number, unreadOnly?: boolean) =>
+    api.get<Notification[]>('/notifications', { params: { limit, unreadOnly } }),
+  
+  // Get notification count
+  getCount: () =>
+    api.get<NotificationCount>('/notifications/count'),
+  
+  // Mark as read
+  markAsRead: (id: string) =>
+    api.post(`/notifications/${id}/read`),
+  
+  // Mark all as read
+  markAllAsRead: () =>
+    api.post<{ count: number }>('/notifications/read-all'),
+};
+
+// =====================================================
+// NEW: Admin Reports API
+// =====================================================
+export const adminReportsApi = {
+  // Get aggregate inventory report
+  getInventoryReport: () =>
+    api.get<InventoryAggregateReport>('/admin/reports/inventory'),
+  
+  // Get inventory by manufacturer
+  getManufacturerInventory: (manufacturerId?: string) =>
+    api.get('/admin/reports/inventory/manufacturer', { params: { manufacturerId } }),
+  
+  // Get inventory by retailer
+  getRetailerInventory: (retailerId?: string) =>
+    api.get('/admin/reports/inventory/retailer', { params: { retailerId } }),
 };
 
 export default api;
