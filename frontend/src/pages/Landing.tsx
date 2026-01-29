@@ -59,7 +59,12 @@ export default function Landing() {
                     shadow-[0_0_40px_rgba(99,102,241,0.45)]">
       <Shield size={36} className="text-white" />
     </div>
-
+     <h1
+              className="text-6xl md:text-7xl font-extrabold tracking-[0.18em] mb-6"
+              style={{ textShadow: '0 12px 32px rgba(0,0,0,0.65)' }}
+            >
+              LIFECYCLE
+            </h1>
     {/* Title */}
     <h1 className="
       text-4xl md:text-5xl font-semibold tracking-tight
