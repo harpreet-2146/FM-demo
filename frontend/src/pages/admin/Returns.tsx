@@ -308,19 +308,19 @@ function ResolveReturnModal({
   onResolve: (data: ResolveReturnDto) => void;
   isLoading: boolean;
 }) {
-  const [status, setStatus] = useState<'APPROVED_RESTOCK' | 'APPROVED_REPLACE' | 'REJECTED'>('APPROVED_RESTOCK');
+  const [resolution, setResolution] = useState<'APPROVED_RESTOCK' | 'APPROVED_REPLACE' | 'REJECTED'>('APPROVED_RESTOCK');
   const [resolutionNotes, setResolutionNotes] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (status === 'REJECTED' && !resolutionNotes.trim()) {
+    if (resolution === 'REJECTED' && !resolutionNotes.trim()) {
       toast.error('Please provide a reason for rejection');
       return;
     }
 
     onResolve({
-      status,
+      resolution,
       resolutionNotes: resolutionNotes || undefined,
     });
   };
@@ -361,8 +361,8 @@ function ResolveReturnModal({
             <label className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-dark-800">
               <input
                 type="radio"
-                checked={status === 'APPROVED_RESTOCK'}
-                onChange={() => setStatus('APPROVED_RESTOCK')}
+                checked={resolution === 'APPROVED_RESTOCK'}
+                onChange={() => setResolution('APPROVED_RESTOCK')}
                 className="form-radio"
               />
               <div>
@@ -373,8 +373,8 @@ function ResolveReturnModal({
             <label className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-dark-800">
               <input
                 type="radio"
-                checked={status === 'APPROVED_REPLACE'}
-                onChange={() => setStatus('APPROVED_REPLACE')}
+                checked={resolution === 'APPROVED_REPLACE'}
+                onChange={() => setResolution('APPROVED_REPLACE')}
                 className="form-radio"
               />
               <div>
@@ -385,8 +385,8 @@ function ResolveReturnModal({
             <label className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-dark-800">
               <input
                 type="radio"
-                checked={status === 'REJECTED'}
-                onChange={() => setStatus('REJECTED')}
+                checked={resolution === 'REJECTED'}
+                onChange={() => setResolution('REJECTED')}
                 className="form-radio"
               />
               <div>
@@ -399,22 +399,22 @@ function ResolveReturnModal({
 
         <div>
           <label className="form-label">
-            Notes {status === 'REJECTED' ? '*' : '(optional)'}
+            Notes {resolution === 'REJECTED' ? '*' : '(optional)'}
           </label>
           <textarea
             className="form-input"
             rows={3}
-            placeholder={status === 'REJECTED' 
+            placeholder={resolution === 'REJECTED' 
               ? "Explain why this return is being rejected..." 
               : "Add any notes about the resolution..."
             }
             value={resolutionNotes}
             onChange={(e) => setResolutionNotes(e.target.value)}
-            required={status === 'REJECTED'}
+            required={resolution === 'REJECTED'}
           />
         </div>
 
-        {status === 'APPROVED_RESTOCK' && (
+        {resolution === 'APPROVED_RESTOCK' && (
           <div className="bg-green-900/20 border border-green-800 rounded-lg p-3">
             <p className="text-sm text-green-400">
               <strong>Note:</strong> Approving with restock will add {ret.items.reduce((sum, i) => sum + i.packets, 0)} packets 
@@ -430,9 +430,9 @@ function ResolveReturnModal({
           <button 
             type="submit" 
             disabled={isLoading} 
-            className={`btn flex-1 ${status === 'REJECTED' ? 'bg-red-600 hover:bg-red-700' : 'btn-primary'}`}
+            className={`btn flex-1 ${resolution === 'REJECTED' ? 'bg-red-600 hover:bg-red-700' : 'btn-primary'}`}
           >
-            {isLoading ? 'Processing...' : status === 'REJECTED' ? 'Reject' : 'Approve'}
+            {isLoading ? 'Processing...' : resolution === 'REJECTED' ? 'Reject' : 'Approve'}
           </button>
         </div>
       </form>
