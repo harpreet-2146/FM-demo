@@ -16,6 +16,9 @@ import {
   ClipboardList,
   Menu,
   X,
+  Link2,
+  RotateCcw,
+  Bell,
 } from 'lucide-react';
 
 interface NavItem {
@@ -24,12 +27,15 @@ interface NavItem {
   icon: React.ElementType;
 }
 
+// UPDATED: Added Assignments nav item
 const adminNav: NavItem[] = [
   { path: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/admin/materials', label: 'Materials', icon: Package },
+  { path: '/admin/assignments', label: 'Assignments', icon: Link2 },  // NEW
   { path: '/admin/inventory', label: 'Inventory', icon: Warehouse },
   { path: '/admin/requests', label: 'Requests', icon: ClipboardList },
   { path: '/admin/dispatch', label: 'Dispatch', icon: Truck },
+  { path: '/admin/returns', label: 'Returns', icon: RotateCcw },  // NEW
   { path: '/admin/invoices', label: 'Invoices', icon: Receipt },
   { path: '/admin/commission', label: 'Commission', icon: DollarSign },
   { path: '/admin/users', label: 'Users', icon: Users },
@@ -42,11 +48,13 @@ const manufacturerNav: NavItem[] = [
   { path: '/manufacturer/dispatch', label: 'Dispatch', icon: Truck },
 ];
 
+// UPDATED: Added Returns nav item
 const retailerNav: NavItem[] = [
   { path: '/retailer/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/retailer/catalog', label: 'Catalog', icon: Package },
   { path: '/retailer/requests', label: 'Requests', icon: ClipboardList },
   { path: '/retailer/receiving', label: 'Receiving', icon: Truck },
+  { path: '/retailer/returns', label: 'Returns', icon: RotateCcw },  // NEW
   { path: '/retailer/sales', label: 'Sales', icon: ShoppingCart },
   { path: '/retailer/invoices', label: 'Invoices', icon: Receipt },
 ];
@@ -205,10 +213,23 @@ export function EmptyState({
 
 export function StatusBadge({ status }: { status: string }) {
   const statusStyles: Record<string, string> = {
-    DRAFT: 'badge-gray', SUBMITTED: 'badge-info', APPROVED: 'badge-success',
-    PARTIAL: 'badge-warning', REJECTED: 'badge-danger', PENDING: 'badge-warning',
-    IN_TRANSIT: 'badge-info', DELIVERED: 'badge-success', CONFIRMED: 'badge-success',
-    DISPUTED: 'badge-danger', PAID: 'badge-success',
+    DRAFT: 'badge-gray', 
+    SUBMITTED: 'badge-info', 
+    APPROVED: 'badge-success',
+    PARTIAL: 'badge-warning', 
+    REJECTED: 'badge-danger', 
+    PENDING: 'badge-warning',
+    IN_TRANSIT: 'badge-info', 
+    DELIVERED: 'badge-success', 
+    CONFIRMED: 'badge-success',
+    DISPUTED: 'badge-danger', 
+    PAID: 'badge-success',
+    // NEW: Return statuses
+    RAISED: 'badge-warning',
+    UNDER_REVIEW: 'badge-info',
+    APPROVED_RESTOCK: 'badge-success',
+    APPROVED_REPLACE: 'badge-success',
+    RESOLVED: 'badge-success',
   };
   return <span className={`badge ${statusStyles[status] || 'badge-gray'}`}>{status.replace(/_/g, ' ')}</span>;
 }
