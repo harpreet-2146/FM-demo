@@ -51,7 +51,7 @@ export default function AdminMaterials() {
     <Layout>
       <PageHeader
         title="Materials"
-        subtitle="Manage material catalog with SQ codes, pricing, and commission settings"
+        subtitle="Manage material catalog with SKU codes, pricing, and commission settings"
         action={
           <button
             onClick={() => setIsModalOpen(true)}
@@ -116,7 +116,7 @@ export default function AdminMaterials() {
               <thead className="bg-dark-800">
                 <tr>
                   <th>Name</th>
-                  <th>SQ Code</th>
+                  <th>SKU Code</th>
                   <th>HSN</th>
                   <th>Units/Pkt</th>
                   <th>MRP/Pkt</th>
@@ -134,7 +134,7 @@ export default function AdminMaterials() {
                     <td>
                       <div className="flex items-center gap-1">
                         <Barcode size={14} className="text-primary-400" />
-                        <span className="font-mono text-sm">{material.sqCode}</span>
+                        <span className="font-mono text-sm">{material.SKUCode}</span>
                       </div>
                     </td>
                     <td className="font-mono text-sm">{material.hsnCode}</td>
@@ -175,7 +175,7 @@ export default function AdminMaterials() {
           <h3 className="text-lg font-semibold text-white mb-3">Material Fields</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-dark-300">
             <div>
-              <p><strong className="text-primary-400">SQ Code:</strong> Unique stock-keeping code for inventory operations</p>
+              <p><strong className="text-primary-400">SKU Code:</strong> Unique stock-keeping code for inventory operations</p>
               <p className="mt-1"><strong className="text-primary-400">HSN Code:</strong> Harmonized System of Nomenclature for GST</p>
               <p className="mt-1"><strong className="text-primary-400">Units/Packet:</strong> Fixed number of units in one sealed packet</p>
             </div>
@@ -224,7 +224,7 @@ function MaterialModal({
 }) {
   const [formData, setFormData] = useState({
     name: '',
-    sqCode: '',
+    SKUCode: '',
     description: '',
     hsnCode: '',
     gstRate: 18,
@@ -240,7 +240,7 @@ function MaterialModal({
     if (material) {
       setFormData({
         name: material.name,
-        sqCode: material.sqCode,
+        SKUCode: material.SKUCode,
         description: material.description || '',
         hsnCode: material.hsnCode,
         gstRate: material.gstRate,
@@ -253,7 +253,7 @@ function MaterialModal({
     } else {
       setFormData({
         name: '',
-        sqCode: '',
+        SKUCode: '',
         description: '',
         hsnCode: '',
         gstRate: 18,
@@ -269,14 +269,14 @@ function MaterialModal({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.name || !formData.sqCode || !formData.hsnCode) {
-      toast.error('Name, SQ Code, and HSN Code are required');
+    if (!formData.name || !formData.SKUCode || !formData.hsnCode) {
+      toast.error('Name, SKU Code, and HSN Code are required');
       return;
     }
 
     if (material) {
-      // Editing - can't change sqCode
-      const { sqCode, ...updateData } = formData;
+      // Editing - can't change SKUCode
+      const { SKUCode, ...updateData } = formData;
       onSave(updateData);
     } else {
       // Creating - don't send isActive (backend sets default)
@@ -314,12 +314,12 @@ function MaterialModal({
           </div>
           
           <div>
-            <label className="form-label">SQ Code * {material && <span className="text-dark-500">(immutable)</span>}</label>
+            <label className="form-label">SKU Code * {material && <span className="text-dark-500">(immutable)</span>}</label>
             <input
               type="text"
               className="form-input font-mono"
-              value={formData.sqCode}
-              onChange={(e) => setFormData({ ...formData, sqCode: e.target.value.toUpperCase() })}
+              value={formData.SKUCode}
+              onChange={(e) => setFormData({ ...formData, SKUCode: e.target.value.toUpperCase() })}
               placeholder="e.g., WF-001"
               disabled={!!material}
               required
